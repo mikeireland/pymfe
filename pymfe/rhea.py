@@ -189,6 +189,13 @@ class Format():
             NOT YET IMPLEMENTED 
             Parameters of the internal co-ordinate system describing the center of the
             CCD. 
+            
+        Notes
+        -----
+        ff = pyfits.getdata('/Users/mireland/data/rhea2/20150721/20150721_flat-001.fits')
+        plt.imshow(ff, aspect='auto')
+        xy = np.meshgrid(np.arange(35), np.arange(2200))
+        plt.plot(x.T + 1375//2-180,xy[1])
         """
 
         ## Now lets interpolate onto a pixel grid rather than the arbitrary wavelength
@@ -230,6 +237,9 @@ class Format():
             blaze_int[m - self.m_min,:] = np.sinc( (ys-self.szy/2)/order_width)**2
 
         return self.szx//2 - x_int,wave_int,blaze_int
+
+    def adjust_x(old_x, image):
+        """Adjust the x pixel value 
 
     def spectral_format_with_matrix(self):
         """Create a spectral format, including a detector to slit matrix at every point.
