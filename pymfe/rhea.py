@@ -238,8 +238,81 @@ class Format():
 
         return self.szx//2 - x_int,wave_int,blaze_int
 
-    def adjust_x(old_x, image):
-        """Adjust the x pixel value 
+    def adjust_x(self, old_x, image, num_xcorr=21):
+        """Adjust the x pixel value based on an image and an initial array from 
+        spectral_format(). Only really designed for a single fiber flat or science
+        image.
+        
+        Parameters
+        ----------
+        old_x: numpy array
+            An old x pixel array
+        image: numpy array
+            An image read in from a fits file
+        
+        Returns
+        -------
+        A new value of the x array.
+        """
+        #Create an array with a single pixel with the value 1.0 at the expected peak of
+        #each order.
+        single_pix_orders = np.zeros(image.shape)
+        xy = np.meshgrid(np.arange(old_x.shape[0]), np.arange(old_x.shape[1]))
+        single_pix_orders[np.round(xy[1]).astype(int), np.round(old_x.T + self.szx//2).astype(int)] = 1.0
+        
+        #Make an array of cross-correlation values.
+        xcorr = np.zeros(num_xcorr)
+        for i in range(num_xcorr):
+            xcorr[i] = np.sum(np.roll(single_pix_orders,i-num_xcorr//2,axis=1)*image)
+        
+        #Based on the maximum cross-correlation, adjust the model x values.
+        the_shift = np.argmax(xcorr) - num_xcorr//2
+        import pdb; pdb.set_trace()
+        return old_x+the_shift
+        
+    def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2, xdeg=2):
+        """Fit to an (nm,ny) array of x-values.
+        
+        The functional form is:
+            x = p0(m) + p1(m)*yp + p2(m)*yp**2 + ...)
+
+        with yp = y - y_middle, and:
+            p0(m) = q00 + q01 * mp + q02 * mp**2 + ...
+
+        with mp = m_ref/m - 1
+        
+        This means that the simplest spectrograph model should have:
+        q00 : central order y pixel
+        q01:  spacing between orders divided by the number of orders
+        ... with everything else approximately zero.
+        
+        Parameters
+        ----------
+        xdeg, ydeg: int
+            Order of polynomial
+        dir: string
+            Directory. If none given, a fit to Tobias's default pixels in "data" is made."""
+        if len(init_mod_file)==0:
+            params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/xmod.txt'))
+          
+        #Create an array of y and m values.
+        my = np.meshgrid(np.arange(x_to_fit.shape[0]) + self.m_min, np.arange(x_to_fit.shape[1]) )
+        ms = my[0].flatten()
+        ys = my[1].flatten()
+        xs = x_to_fit.flatten()
+        
+        init_resid = self.wave_fit_resid(params0, ms, xs, ys,xdeg=xdeg,ydeg=ydeg)
+        bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, xs, ys,xdeg,ydeg))
+        final_resid = self.wave_fit_resid(bestp[0], ms, xs, ys,xdeg=xdeg,ydeg=ydeg)
+        import pdb; pdb.set_trace()
+        params = bestp[0].reshape( (ydeg+1,xdeg+1) )
+        outf = open(outdir + "xmod.txt","w")
+        for i in range(ydeg+1):
+            for j in range(xdeg+1):
+                outf.write("{0:9.4e} ".format(params[i,j]))
+            outf.write("\n")
+        outf.close()
+
 
     def spectral_format_with_matrix(self):
         """Create a spectral format, including a detector to slit matrix at every point.
