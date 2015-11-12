@@ -58,7 +58,8 @@ class Format():
         
     def wave_fit_resid(self, params, ms, waves, ys, ydeg=3, xdeg=3):
         """A fit function for read_lines_and_fit (see that function for details), to be 
-        used in scipy.optimize.leastsq
+        used in scipy.optimize.leastsq. The same function is used in fit_to_x, but 
+        in that case "waves" is replaced by "xs".
         """
         if np.prod(params.shape) != (xdeg+1)*(ydeg+1):
             print("Parameters are flattened - xdeg and ydeg must be correct!")
@@ -74,11 +75,11 @@ class Format():
             polyq = np.poly1d(params[i,:])
             ps[:,i] = polyq(mp)
         wave_mod = np.empty( len(ms) ) 
+#        pdb.set_trace()
         for i in range(len(ms)):
             polyp = np.poly1d(ps[i,:])
             wave_mod[i] = polyp(ys[i]-self.szy/2)
         return wave_mod - waves
-    
         
     def read_lines_and_fit(self, init_mod_file='', pixdir='',outdir='./', ydeg=3, xdeg=3):
         """Read in a series of text files that have a (Wavelength, pixel) format and file names
@@ -158,7 +159,7 @@ class Format():
             raise UserWarning
         return sim_im
         
-    def spectral_format(self,xoff=0.0,yoff=0.0,ccd_centre={},ydeg=3, xdeg=3):
+    def spectral_format(self,xoff=0.0,yoff=0.0,ccd_centre={}):
         """Create a spectrum, with wavelengths sampled in 2 orders.
         
         Parameters
@@ -207,36 +208,39 @@ class Format():
         
         ## Should be an option here to get files from a different directory.
         wparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/wavemod.txt'))
-        xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/coefficients.txt'))
+        xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/xmod.txt'))
         
         ys = np.arange(self.szy)
         ## Loop through m 
-        ps = np.empty( (ydeg+1) )
         for m in np.arange(self.m_min,self.m_max+1):
             #First, sort out the wavelengths
             mp = self.m_ref/m - 1
+            
             #Find the polynomial coefficients for each order.
+            ydeg = wparams.shape[0] - 1
+            ps = np.empty( (ydeg+1) )
             for i in range(ydeg+1):
                 polyq = np.poly1d(wparams[i,:])
                 ps[i] = polyq(mp)
             polyp = np.poly1d(ps)      
             wave_int[m - self.m_min,:] = polyp(ys - self.szy/2)
             
-            #Now, sort out the x values
-            ww = np.where(xparams[:,0] == m)[0]
-            if len(ww)==0:
-                raise UserWarning
-            ww = ww[0]
-            polyx = np.poly1d(xparams[ww,1:])
-            x_int[m - self.m_min,:] = polyx(ys)
-
+            #Find the polynomial coefficients for each order.
+            ydeg = xparams.shape[0] - 1
+            ps = np.empty( (ydeg+1) )
+            for i in range(ydeg+1):
+                polyq = np.poly1d(xparams[i,:])
+                ps[i] = polyq(mp)
+            polyp = np.poly1d(ps)      
+            x_int[m - self.m_min,:] = polyp(ys - self.szy/2)
+            
             #Finally, the blaze
             wcen = wave_int[m - self.m_min,self.szy/2]
             disp = wave_int[m - self.m_min,self.szy/2+1] - wcen
             order_width = (wcen/m)/disp
             blaze_int[m - self.m_min,:] = np.sinc( (ys-self.szy/2)/order_width)**2
 
-        return self.szx//2 - x_int,wave_int,blaze_int
+        return x_int,wave_int,blaze_int
 
     def adjust_x(self, old_x, image, num_xcorr=21):
         """Adjust the x pixel value based on an image and an initial array from 
@@ -267,10 +271,31 @@ class Format():
         
         #Based on the maximum cross-correlation, adjust the model x values.
         the_shift = np.argmax(xcorr) - num_xcorr//2
-        import pdb; pdb.set_trace()
+
         return old_x+the_shift
         
-    def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2, xdeg=2):
+    def fit_x_to_image(self, image, outdir='./', decrease_dim=10, search_pix=5):
+        """Fit a "tramline" map"""
+        xx,wave,blaze=self.spectral_format()
+        xs = self.adjust_x(xx,image)
+#        the_shift = xx_new[0]-xx[0]
+        image_med = image.reshape( (image.shape[0]//decrease_dim,decrease_dim,image.shape[1]) )
+        image_med = np.median(image_med,axis=1)
+        my = np.meshgrid(np.arange(xx.shape[1]), np.arange(xx.shape[0]) + self.m_min)
+        ys = my[0]
+        ys = np.average(ys.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
+        xs = np.average(xs.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
+        
+        #Now go through and find the peak pixel values. TODO: find a sub-pixel peak.
+        for i in range(xs.shape[0]): #Go through each order...
+            for j in range(xs.shape[1]):
+                xi = int(np.round(xs[i,j]))
+                peakpix = image_med[j,self.szx//2 + xi -search_pix:self.szx//2 + xi +search_pix+1]
+                xs[i,j] += np.argmax(peakpix) - search_pix
+                
+        self.fit_to_x(xs,ys=ys)
+        
+    def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2, xdeg=4, ys=[], decrease_dim=1):
         """Fit to an (nm,ny) array of x-values.
         
         The functional form is:
@@ -296,16 +321,29 @@ class Format():
             params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/xmod.txt'))
           
         #Create an array of y and m values.
-        my = np.meshgrid(np.arange(x_to_fit.shape[0]) + self.m_min, np.arange(x_to_fit.shape[1]) )
-        ms = my[0].flatten()
-        ys = my[1].flatten()
-        xs = x_to_fit.flatten()
+        xs = x_to_fit.copy()
+        my = np.meshgrid(np.arange(xs.shape[1]), np.arange(xs.shape[0]) + self.m_min)
+        if (len(ys) == 0):
+            ys = my[0]
+        ms = my[1]
         
-        init_resid = self.wave_fit_resid(params0, ms, xs, ys,xdeg=xdeg,ydeg=ydeg)
-        bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, xs, ys,xdeg,ydeg))
-        final_resid = self.wave_fit_resid(bestp[0], ms, xs, ys,xdeg=xdeg,ydeg=ydeg)
-        import pdb; pdb.set_trace()
+        #Allow a dimensional decrease, for speed
+        if (decrease_dim > 1):
+            ms = np.average(ms.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
+            ys = np.average(ys.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
+            xs = np.average(xs.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
+        
+        #Flatten arrays
+        ms = ms.flatten()
+        ys = ys.flatten()
+        xs = xs.flatten()
+        
+        #Do the fit!
+        init_resid = self.wave_fit_resid(params0, ms, xs, ys,ydeg=ydeg,xdeg=xdeg)
+        bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, xs, ys,ydeg,xdeg))
+        final_resid = self.wave_fit_resid(bestp[0], ms, xs, ys,ydeg=ydeg,xdeg=xdeg)
         params = bestp[0].reshape( (ydeg+1,xdeg+1) )
+
         outf = open(outdir + "xmod.txt","w")
         for i in range(ydeg+1):
             for j in range(xdeg+1):
