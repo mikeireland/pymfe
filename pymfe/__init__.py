@@ -9,4 +9,5 @@ __version__ = "0.1"
 import ghost     #Includes the "Arm" simulator code
 import rhea      #Includes the "Format" empirical spectrograph definition code.
 from extract import Extractor
+import calibration
 
