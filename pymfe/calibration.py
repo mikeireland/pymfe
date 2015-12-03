@@ -193,7 +193,7 @@ class Calibration():
         except Exception:
             return 'Unable to combine images. Possibly not enough memory or images are not the same shape.'
         h.add_comment('Result of combining '+imagelist+' images')
-        pyfits.writeto(output,comb,header=h)
+        pyfits.writeto(output,comb)#,header=h)
         return 'Successfully combined images.'
 
 
