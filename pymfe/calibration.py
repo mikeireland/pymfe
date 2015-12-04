@@ -137,7 +137,7 @@ class Calibration():
         f1.close()
         
     def imageCombine(self, imagelist, output, method='median', sigmaclip=None,overwrite=False):
-        """ Function to do image combination, useful for combining e.g. darks and baises. STILL NOT FULLY TESTED.
+        """ Function to do image combination, useful for combining e.g. darks and baises. 
 
         Parameters
         ----------
@@ -203,5 +203,77 @@ class Calibration():
         return 'Successfully combined images.'
 
 
+    def imageSubtraction(self,image,calframe,output='./',postfix=None,overwrite=False):
+        """
+        Function to do image subtraction, useful for bias and/or dark frame calibration. UNTESTED SO FAR
+
+        Parameters
+        ----------
+
+        image: string or list
+             Original fits image to be calibrated or list of images to be calibrated. If a string with '.fits' is provided, only a single image is calibrated. If a string without the extension is provided, pipeline looks for a file with a list of images in the path provided. if a python list is provided, pipeline will run through all and calibrate all.
+        calframe: string
+             Calibration fits frame to be subtracted.
+        output: string
+            If it is a directory, determined by the '/' character in the name, all files will retain their original input name and be placed inside that folder with (optionally) a postfix added to the file name. If it is a single file name, this is the output file name. 
+        postfix: string (optional)
+            Postfix to add to the fits images post calibration. e.g., if original image is test.fits, and postfix is '_biased', final image is test_biased.fits.
+        overwrite: Boolean (optional)
+            If True, any image encountered that already exists at the output saving stage will be overwritten.
+
         
-    
+        Returns
+        -------
+        s: string indicating success or failure
+        """
+        #First figure out what the image input is and create a list to calibrate
+        if type(image)==list:
+            images=image
+        elif type(image)==str:
+            if '.fit' in image:
+                images=[image]
+            else:
+                try: images=np.loadtxt(image,dtype='str')
+                except Exception: return 'Unable to load image list from file ',image
+        else: return 'Unable to determine what the image(s) to calibrate are.'
+        #Now that the images list is created load the calibration image
+        try: calimage=pyfits.getdata(calframe)
+        except Exception: return 'Failed to load calibration image'
+        #Now determine if the outut is a single image or a folder.
+        if '/' in output:
+            try: 
+                os.system('mkdir '+output)
+                single_output=False
+            except Exception: pass
+        else: 
+            single_output=True
+        #Now do the calibration
+        for im in images:
+            try: 
+                f=pyfits.open(im)
+                h=f[0].header
+                d=f[0].data
+            except Exception: return 'Unable to open file ',im
+            if single_output and len(images)<2:
+                return 'Multiple images for calibration but single output specified. Ambiguous...'
+            if np.shape(d)!=np.shape(calimage):
+                return 'Image '+im+' can not be calibrated due to incompatible size with the calibration image.'
+            outdata=d-calimage
+            h.add_comment('Image calibrated using '+calframe)
+            pf=''
+            if postfix:
+                pf=postfix
+            if single_output:
+                outname=output
+            else: 
+                outname=output+im.split('.fit')[0]+pf+'.fits'
+            #Now that the output name is defined and the image is subtracted, along side a comment added on the header keyword, try to write new file onto system.
+            try: 
+                dummy=pyfits.writeto(outname,outdata,header=h)
+            except Exception:
+                return 'Unable to write image to disk'
+        return 'Successfully calibrated image(s)'
+        
+        
+                    
+
