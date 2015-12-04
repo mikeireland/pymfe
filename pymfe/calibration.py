@@ -16,6 +16,7 @@ try: import pyfits
 except: import astropy.io.fits as pyfits
 import commands, pickle
 import numpy as np
+import os
 
 
 
@@ -135,7 +136,7 @@ class Calibration():
         pickle.dump(night_data, f1)
         f1.close()
         
-    def imageCombine(self, imagelist, output, method='median', sigmaclip=None):
+    def imageCombine(self, imagelist, output, method='median', sigmaclip=None,overwrite=False):
         """ Function to do image combination, useful for combining e.g. darks and baises. STILL NOT FULLY TESTED.
 
         Parameters
@@ -154,6 +155,9 @@ class Calibration():
         -------
         s: string indicating success or failure
         """
+        #Check if output file exists. If so and if overwrite is False, return a warning and don't combine.
+        if os.path.exists(output) and not overwrite:
+            return 'Will not try to combine since output file exists and overwrite option is set to False.'
         #Import imageCombiner class from astropysics.ccd
         ic=ccd.ImageCombiner()
         if not method in ['mean','median','sum']:
@@ -193,7 +197,9 @@ class Calibration():
         except Exception:
             return 'Unable to combine images. Possibly not enough memory or images are not the same shape.'
         h.add_comment('Result of combining '+imagelist+' images')
-        pyfits.writeto(output,comb)#,header=h)
+        if os.path.exists(output) and overwrite:
+            os.system('rm '+output)
+        pyfits.writeto(output,comb.data,header=h)
         return 'Successfully combined images.'
 
 
