@@ -158,8 +158,8 @@ class Extractor():
                 if self.x_map[i,j] != self.x_map[i,j]:
                     extracted_var[i,j,:] = np.nan
                     continue
-                #Create our column cutout for the data and the PSF
-                x_ix = int(self.x_map[i,j]) - nx_cutout//2 + np.arange(nx_cutout,dtype=int) + nx//2
+                #Create our column cutout for the data and the PSF. !!! Is "round" correct on the next line??? 
+                x_ix = int(np.round(self.x_map[i,j])) - nx_cutout//2 + np.arange(nx_cutout,dtype=int) + nx//2
                 for k in range(no):
                     phi[:,k] = np.interp(x_ix - self.x_map[i,j] - nx//2, offsets, profile[:,k])
                     phi[:,k] /= np.sum(phi[:,k])
@@ -167,6 +167,11 @@ class Extractor():
                 ww = np.where( (x_ix >= nx) | (x_ix < 0) )[0]
                 x_ix[ww]=0
                 phi[ww,:]=0.0
+                
+                #Stop here. 
+#                if i==10:
+#                    pdb.set_trace()
+            
                 #Cut out our data and inverse variance.
                 col_data = data[j,x_ix]
                 col_inv_var = pixel_inv_var[j,x_ix]

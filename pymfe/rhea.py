@@ -50,11 +50,12 @@ class Format():
         self.mode       = mode
         self.nl         = 1
         self.im_slit_sz = 64            #Number of pixels for a simulated slit image
-        self.microns_pix = 5.0      #Microns per pixel in the simulated image
+        self.microns_pix = 10.0      #Microns per pixel in the simulated image
         self.lenslet_width=250.0        #Width of a single lenslet in microns
+        self.fib_image_width_in_pix = 4.0
         self.fluxes = np.ones( (1,1) )  #Default fluxes for simulated data
         ## And, critically, the slit-to-pixel scaling
-        self.slit_microns_per_det_pix = 62.5
+        self.slit_microns_per_det_pix = 62.5 # WAS 62.5
         
     def wave_fit_resid(self, params, ms, waves, ys, ydeg=3, xdeg=3):
         """A fit function for read_lines_and_fit (see that function for details), to be 
@@ -152,7 +153,7 @@ class Format():
             xy = np.meshgrid(x,x)
             ## A simple Gaussian approximation to the fiber far field (or near-field in the
             ## case of the original RHEA2
-            gsig = 2.0*self.slit_microns_per_det_pix/2.35482
+            gsig = self.fib_image_width_in_pix*self.slit_microns_per_det_pix/2.35482
             sim_im = np.exp( - xy[0]**2/2.0/(gsig/self.xbin)**2 - xy[1]**2/2.0/gsig**2  )
         else:
             print("Error: invalid mode " + self.mode)
