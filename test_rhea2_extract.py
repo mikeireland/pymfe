@@ -3,6 +3,7 @@
 TODO:
 1) Put extraction in a script where tramlines are tweaked.
 2) REVERSE the wavelength scale to correct it!!!
+3) Try a zero-mean cross correlation to better match the barycentric correction
 """
 
 from __future__ import division, print_function
@@ -19,7 +20,12 @@ import pdb
 import scipy.optimize as op
 import scipy.interpolate as interp
 import time
+from astropy.time import Time
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+import PyAstronomy.pyasl as pyasl
 plt.ion()
+
 
 dir = "/Users/mireland/data/rhea2/20150601/"
 
@@ -34,9 +40,9 @@ files = glob.glob(dir + "*" + star + "*0[012]1.fit")
 dark = pyfits.getdata(dir + "Masterdark_thar.fit")
 
 #Gamma cru
-#star = "gacrux"
-#files = glob.glob(dir + "*" + star + "*00[1234].fit")
-#dark = pyfits.getdata(dir + "Masterdark_target.fit")
+star = "gacrux"
+files = glob.glob(dir + "*" + star + "*00[1234].fit")
+dark = pyfits.getdata(dir + "Masterdark_target.fit")
 
 #nu Oph, "Sinistra". Has bad pixels. 
 star = "sinistra"
@@ -47,6 +53,12 @@ dark = pyfits.getdata(dir + "Masterdark_target.fit")
 ref_file = "" #A reference spectrum file should be possible.
 rebin_fact=2
 smoothit = 3
+
+#This is "Sinistra"
+coord = SkyCoord('17 59 01.59191 -09 46 25.07',unit=(u.hourangle, u.deg))
+
+#This is "Gamma Cru"
+#coord = SkyCoord('12 31 09.9596 -57 06 47.568',unit=(u.hourangle, u.deg))
 
 #-----------------------------------------
 def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref):
@@ -101,19 +113,34 @@ xx, wave, blaze = rhea2_format.spectral_format()
 
 fluxes = []
 vars = []
+dates = []
+bcors = []
 
 for file in files:
     data = pyfits.getdata(file) - dark
+    date = Time(pyfits.getheader(file)['DATE-OBS'], location=('151.2094d','-33.865d'))
+    #(obs_long, obs_lat, obs_alt, ra2000, dec2000, jd, debug=False)
+    bcors.append(pyasl.helcorr(151.2094, -33.865, 100.,coord.ra.deg, coord.dec.deg,date.jd))
+    dates.append(date)
     flux,var = rhea2_extract.one_d_extract(data=data, rnoise=20.0)
+    #pdb.set_trace()
     fluxes.append(flux[:,:,0])
     vars.append(var[:,:,0])
 #    plt.imshow(data, vmin=0,vmax=1e3,aspect='auto')
  
 fluxes = np.array(fluxes)
 vars = np.array(vars)   
+bcors = np.array(bcors)
+dates = np.array(dates)
 nm = fluxes.shape[1]
 ny = fluxes.shape[2]
 nf = len(files)
+
+
+#Create a Gaussian smoothing function for the reference spectrum. This is needed to
+#
+gg = np.exp(-(np.arange(21)-10)**2/2.0/2.5**2)
+gg /= np.sum(gg)
 
 #If not given, we need to subsample a reference spectrum using opticstools.utils.regrid_fft
 #and interpolate to fit. 
@@ -128,10 +155,15 @@ if len(ref_file)==0:
     new_shape = (flux.shape[0],rebin_fact*flux.shape[1])
     #!!! the multiplication by rebin_fact on the next line is actually an opticstools error !!!
     ref_spect0 = ot.utils.regrid_fft(flux_ref,new_shape)*rebin_fact
+    for j in range(nm):
+        ref_spect0[j,:] = np.convolve(ref_spect0[j,:], gg, mode='same')
     ref_spect = np.empty( (ref_spect0.shape[0],ref_spect0.shape[1]+2) )
     ref_spect[:,1:-1] = ref_spect0
     ref_spect[:,0] = ref_spect[:,1]
     ref_spect[:,-1] = ref_spect[:,-2]
+    
+#    ref_spect = np.roll(ref_spect,1)
+    
     wave_ref = np.empty(ref_spect.shape)
     for j in range(nm):
         wave_ref[j,1:-1] = np.interp(np.arange(rebin_fact*ny)/rebin_fact,np.arange(ny),wave[j,:])
@@ -171,3 +203,7 @@ for i in range(nf):
         except:
             rv_sigs[i,j] = np.NaN
     print("Done file {0:d}".format(i))
+
+#Plot the Barycentric corrected RVs. Note that a median over all orders is
+#only a first step - a weighted mean is needed.
+plt.plot(np.median(rvs,1)+((bcors[:,0] - np.median(bcors[:,0]))*1e3))
