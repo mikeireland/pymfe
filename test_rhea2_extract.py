@@ -61,7 +61,7 @@ coord = SkyCoord('17 59 01.59191 -09 46 25.07',unit=(u.hourangle, u.deg))
 #coord = SkyCoord('12 31 09.9596 -57 06 47.568',unit=(u.hourangle, u.deg))
 
 #-----------------------------------------
-def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref):
+def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref, return_spect=False):
     """Find the residuals to a fit of a (subsampled) 
     reference spectrum to an observed spectrum. 
     
@@ -88,7 +88,11 @@ def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref):
     xx = np.arange(ny)-ny//2
     norm = np.exp(params[1]*xx**2 + params[2]*xx + params[3])
     fitted_spect = spline_ref(wave*(1.0 + params[0]/c))*norm
-    return (fitted_spect - spect)/spect_sdev
+    
+    if return_spect:
+        return fitted_spect
+    else:
+        return (fitted_spect - spect)/spect_sdev
 
 def rv_shift_jac(params, wave,spect,spect_sdev,spline_ref):
     """Jacobian function for the above. Dodgy... sure, but
@@ -139,7 +143,7 @@ nf = len(files)
 
 #Create a Gaussian smoothing function for the reference spectrum. This is needed to
 #
-gg = np.exp(-(np.arange(21)-10)**2/2.0/2.5**2)
+gg = np.exp(-(np.arange(21)-10)**2/2.0/4.5**2)
 gg /= np.sum(gg)
 
 #If not given, we need to subsample a reference spectrum using opticstools.utils.regrid_fft
@@ -183,6 +187,9 @@ for i in range(nf):
         #This is the *only* non-linear interpolation function that doesn't take forever
         spline_ref = interp.InterpolatedUnivariateSpline(wave_ref[j,:], ref_spect[j,:])
         args = (wave[j,:],fluxes[i,j,:],spect_sdev[i,j,:],spline_ref)
+        #Remove edge effects in a slightly dodgy way.
+        args[2][:10] = np.inf
+        args[2][-10:] = np.inf
         resid = rv_shift_resid( initp, *args)
         the_fit = op.leastsq(rv_shift_resid,initp,args=args, diag=[1e3,1e-6,1e-3,1],Dfun=rv_shift_jac,full_output=True)
         #Remove bad points...
@@ -195,7 +202,7 @@ for i in range(nf):
             pp0 = np.poly1d(the_fit[0][1:])
             norm = np.exp(pp0(np.arange(ny)-ny//2))
             cc = 2.998e8
-            fitted_spect = np.interp(args[0]*(1.0 + the_fit[0][0]/cc),args[3], args[4])*norm
+            fitted_spect = rv_shift_resid(the_fit[0],*args,return_spect=True)
             import pdb; pdb.set_trace()
         rvs[i,j] = the_fit[0][0]
         try:
@@ -206,4 +213,4 @@ for i in range(nf):
 
 #Plot the Barycentric corrected RVs. Note that a median over all orders is
 #only a first step - a weighted mean is needed.
-plt.plot(np.median(rvs,1)+((bcors[:,0] - np.median(bcors[:,0]))*1e3))
+plt.plot(np.median(rvs[3:25],1)+((bcors[:,0] - np.median(bcors[:,0]))*1e3))
