@@ -112,6 +112,9 @@ class Extractor():
             implementation, 'measured' should be a possibility. 'square' assigns each
             pixel uniquely to a single lenslet. For testing only
         
+        badpix: (float array, float array)
+            Output of e.g. np.where giving the bad pixel coordinates.
+        
         rnoise: float
             The assumed readout noise.
         

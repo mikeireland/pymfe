@@ -115,16 +115,19 @@ class Format():
         ms = np.array([])
         waves = np.array([])
         ys = np.array([])
+        #The next loop reads in Tobias's wavelengths.
         for m in range(self.m_min, self.m_max+1):
             fname = pixdir + "order{0:d}.txt".format(m)
             pix = np.loadtxt(fname)
             ms = np.append(ms,m*np.ones(pix.shape[0]))
             waves = np.append(waves,pix[:,0])
-            ys = np.append(ys,pix[:,1])
+            #Tobias's definition of the y-axis is backwards compared to python.
+            ys = np.append(ys,self.szy - pix[:,1])
 
         init_resid = self.wave_fit_resid(params0, ms, waves, ys)
         bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, waves, ys))
         final_resid = self.wave_fit_resid(bestp[0], ms, waves, ys)
+        print("Fit residual RMS (Angstroms): {6.3f}".format(np.std(final_resid)))
         params = bestp[0].reshape( (ydeg+1,xdeg+1) )
         outf = open(outdir + "wavemod.txt","w")
         for i in range(ydeg+1):
@@ -152,7 +155,7 @@ class Format():
             x = (np.arange(self.im_slit_sz) - self.im_slit_sz/2)*self.microns_pix
             xy = np.meshgrid(x,x)
             ## A simple Gaussian approximation to the fiber far field (or near-field in the
-            ## case of the original RHEA2
+            ## case of the original RHEA2. 2.35482 scales FWHM to stdev
             gsig = self.fib_image_width_in_pix*self.slit_microns_per_det_pix/2.35482
             sim_im = np.exp( - xy[0]**2/2.0/(gsig/self.xbin)**2 - xy[1]**2/2.0/gsig**2  )
         else:

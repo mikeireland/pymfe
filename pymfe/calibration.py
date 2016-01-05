@@ -136,7 +136,7 @@ class Calibration():
         pickle.dump(night_data, f1)
         f1.close()
         
-    def imageCombine(self, imagelist, output, method='median', sigmaclip=None,overwrite=False):
+    def imageCombine(self, output, imagelist=None,images=None, method='median', sigmaclip=None,overwrite=False):
         """ Function to do image combination, useful for combining e.g. darks and baises. 
 
         Parameters
@@ -168,18 +168,21 @@ class Calibration():
             except Exception: return 'Invalid sigma clip value'
             ic.sigclip=sigmaclip
         #check if imagelist is part of the frametypes we accept
-        if imagelist in self.frametypes:
-            print 'Assuming you have already ran makeImageList and grabbing file names from there'
-            f=open('frame_types.pkl')
-            night_data=pickle.load(f)
-            f.close()
-            images=night_data[imagelist]
-        #Otherwise, look for an input file
-        else:
-            try: 
-                images=np.loadtxt(imagelist,dtype='str')
-            except Exception:
-                return 'Failed to load image list from file '+imagelist+'. Make sure only file names exist and that they are on separate lines.'
+        if imagelist:
+            if imagelist in self.frametypes:
+                print 'Assuming you have already ran makeImageList and grabbing file names from there'
+                f=open('frame_types.pkl')
+                night_data=pickle.load(f)
+                f.close()
+                images=night_data[imagelist]
+            #Otherwise, look for an input file
+            else:
+                try: 
+                    images=np.loadtxt(imagelist,dtype='str')
+                except Exception:
+                    return 'Failed to load image list from file '+imagelist+'. Make sure only file names exist and that they are on separate lines.'
+        elif images is None:
+             return 'Must input imagelist or images'
         #Start loading images onto list
         shape=np.shape(pyfits.getdata(images[0]))
         h=pyfits.getheader(images[0])
@@ -196,10 +199,13 @@ class Calibration():
             comb=ic.combineImages(imagecube)
         except Exception:
             return 'Unable to combine images. Possibly not enough memory or images are not the same shape.'
-        h.add_comment('Result of combining '+imagelist+' images')
+        if imagelist:
+            h.add_comment('Result of combining '+imagelist+' images')
         if os.path.exists(output) and overwrite:
             os.system('rm '+output)
-        pyfits.writeto(output,comb.data,header=h)
+        #!!! Maybe comb used to be comb.data. Get rid of this ccd @#$
+        pyfits.writeto(output,comb,header=h)
+
         return 'Successfully combined images.'
 
 
