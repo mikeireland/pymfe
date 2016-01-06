@@ -26,7 +26,6 @@ import PyAstronomy.pyasl as pyasl
 from astropy import constants as const
 plt.ion()
 
-
 dir = "/Users/mireland/data/rhea2/20150601/"
 
 #First few thar frames...
@@ -64,18 +63,18 @@ save_file = "thar06.fit"
 #coord = SkyCoord('17 59 01.59191 -09 46 25.07',unit=(u.hourangle, u.deg))
 
 star = "thar"
-save_file = "tauCeti_thar1114.fits"
+save_file_prefix = "tauCeti_thar1114" 
 
 star = "tauCeti"
-save_file = "tauCeti1114.fits"
+save_file_prefix = "tauCeti1114"
 
 files = glob.glob("/Users/mireland/data/rhea2/tauCeti/201511*/*" + star + "*.fit")
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
 #Select a dark here
 dir = "/Users/mireland/data/rhea2/tauCeti/"
-#dark = pyfits.getdata(dir + "Masterdark_thar.fit")
-dark = pyfits.getdata(dir + "Masterdark_target.fit")
+dark = pyfits.getdata(dir + "Masterdark_thar.fit")
+#dark = pyfits.getdata(dir + "Masterdark_target.fit")
 
 
 rhea2_format = pymfe.rhea.Format()
@@ -83,10 +82,13 @@ rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=False)
 xx, wave, blaze = rhea2_format.spectral_format()
 
 #Things to change each time if you want
-do_we_extract=True
+do_we_extract=False
 do_bcor=True
-med_cut=0.6 #0 for Th/Ar
+med_cut=0.0 #0 for Th/Ar
 
+save_file = save_file_prefix + ".fits"
+rv_file = save_file_prefix + "_rv.csv"
+rv_sig_file = save_file_prefix + "_rv_sig.csv"
 #-----------------------------------------
 def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref, return_spect=False):
     """Find the residuals to a fit of a (subsampled) 
@@ -145,7 +147,7 @@ def rv_shift_jac(params, wave,spect,spect_sdev,spline_ref):
     jac[:,0] = (spline_ref(wave*(1.0 - (params[0] + 1.0)/const.c.si.value))*norm - fitted_spect)/spect_sdev
     return jac
 
-def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 2.0, med_cut=0.6,gauss_hw=7):
+def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 1.0, med_cut=0.6,gauss_hw=7):
     """Create a reference spectrum from a series of target spectra, after correcting the
     spectra barycentrically. """
     nm = fluxes.shape[1]
@@ -291,7 +293,7 @@ for i in range(nf):
         the_fit = op.leastsq(rv_shift_resid,initp,args=args, diag=[1e3,1e-6,1e-3,1],Dfun=rv_shift_jac,full_output=True)
         #Remove bad points...
         resid = rv_shift_resid( the_fit[0], *args)
-        wbad = np.where( np.abs(resid) > 10)[0]
+        wbad = np.where( np.abs(resid) > 7)[0]
         args[2][wbad] = np.inf
         the_fit = op.leastsq(rv_shift_resid,initp,args=args, diag=[1e3,1e-7,1e-3,1],Dfun=rv_shift_jac, full_output=True)
         #Some outputs for testing
@@ -308,19 +310,24 @@ for i in range(nf):
 #only a first step - a weighted mean is needed.
 plt.clf()
 
-bcors_zeroed = bcors - np.median(bcors)
-bcors_zeroed = bcors
+rvs += bcors.repeat(nm).reshape( (nf,nm) )
+
 rv_mn,wt_sum = np.average(rvs,axis=1,weights=1.0/rv_sigs**2,returned=True)
-rv_mn += bcors_zeroed
 rv_mn_sig = 1.0/np.sqrt(wt_sum)
-rv_med1 = np.median(rvs,1) + bcors_zeroed
-rv_med2 = np.median(rvs[:,3:25],1) + bcors_zeroed
+rv_med1 = np.median(rvs,1)
+rv_med2 = np.median(rvs[:,3:20],1)
 
 #plt.plot_date([dates[i].plot_date for i in range(len(dates))], rv_mn)
 
-plt.errorbar(mjds, rv_mn, yerr=rv_mn_sig,fmt='o')
+#plt.errorbar(mjds, rv_mn, yerr=rv_mn_sig,fmt='o')
+plt.errorbar(mjds, rv_med2, yerr=rv_mn_sig,fmt='o')
 plt.xlabel('Date (MJD)')
 plt.ylabel('Barycentric RV (m/s)')
+plt.title(star)
+
+#Write a csv file for the RVs and the RV_sigs
+np.savetxt(rv_file, np.append(mjds.reshape(nf,1),rvs,axis=1), fmt="%10.4f" + nm*", %6.1f",header="Radial velocities in m/s for each order, for each MJD epoch")
+np.savetxt(rv_sig_file, np.append(mjds.reshape(nf,1),rv_sigs,axis=1), fmt="%10.4f" + nm*", %6.1f",header="Radial velocity uncertainties in m/s for each order, for each MJD epoch")
 
 #A line for checking the image...
 #dd = pyfits.getdata (BLAH)(
