@@ -11,12 +11,12 @@ Check each individual function for instructions"""
 #pyfits will be used for image subtraction
 #pickle may be used for image dictionary format, but perhaps not a bad idea to contain a text file for visual inspection as well
 
-from astropysics import ccd
 try: import pyfits
 except: import astropy.io.fits as pyfits
 import commands, pickle
 import numpy as np
 import os
+from distutils.version import StrictVersion
 
 
 
@@ -136,14 +136,14 @@ class Calibration():
         pickle.dump(night_data, f1)
         f1.close()
         
-    def imageCombine(self, output, imagelist=None,images=None, method='median', sigmaclip=None,overwrite=False):
-        """ Function to do image combination, useful for combining e.g. darks and baises. 
+    def imageCombine(self, output, imagelist=None, method='median', sigmaclip=None,overwrite=False):
+        """ Function to do image combination, useful for combining e.g. darks and baises. If you want to median combine with sigma clipping, you need numpy 1.9 or above.
 
         Parameters
         ----------
 
         imageList: string
-             Either a frame type from self.frametypes class attribute (e.g. 'bias') or a file name of a file containng a list of images. 
+             Either a frame type from self.frametypes class attribute (e.g. 'bias') or a file name of a file containing a list of images or simply a python list with file names. 
         output: string
             Output file name for the combined image
         method: string (optional)
@@ -159,16 +159,16 @@ class Calibration():
         if os.path.exists(output) and not overwrite:
             return 'Will not try to combine since output file exists and overwrite option is set to False.'
         #Import imageCombiner class from astropysics.ccd
-        ic=ccd.ImageCombiner()
         if not method in ['mean','median','sum']:
             return 'Invalid combination method'
-        ic.method=method
         if sigmaclip: 
-            try: float(sigmaclip)
+            try:
+                float(sigmaclip)
             except Exception: return 'Invalid sigma clip value'
-            ic.sigclip=sigmaclip
+            if method=='median' and (StrictVersion(np.__version__) < StrictVersion('1.9.0')):
+                return 'You need numpy version 1.9.0 or above for median combining with sigma clipping'
         #check if imagelist is part of the frametypes we accept
-        if imagelist:
+        if type(imagelist)==str:
             if imagelist in self.frametypes:
                 print 'Assuming you have already ran makeImageList and grabbing file names from there'
                 f=open('frame_types.pkl')
@@ -181,6 +181,8 @@ class Calibration():
                     images=np.loadtxt(imagelist,dtype='str')
                 except Exception:
                     return 'Failed to load image list from file '+imagelist+'. Make sure only file names exist and that they are on separate lines.'
+        elif type(imagelist)==list:
+            images=imagelist
         elif images is None:
              return 'Must input imagelist or images'
         #Start loading images onto list
@@ -195,17 +197,39 @@ class Calibration():
             else: return 'Image combination failed! Image '+i+' has a different shape to the others on the list.'
             h.append(('COMB'+str(comb_index),i,'Image used for combination'))
             comb_index+=1
+        if method == 'median':
+            op = np.nanmedian
+        elif method == 'mean':
+            op = np.nanmean
+        elif method == 'sum':
+            op = np.nansum
+        if sigmaclip is not None:
+            print 'Sigma clipping images'
+            print 'Calculating mean'
+            mean_ar=np.mean(imagecube,axis=0)
+            print 'Calculating standard deviation'
+            std_ar=np.std(imagecube,axis=0)
+            print 'subtracting mean'
+            sds = imagecube-mean_ar
+            print 'Dividing by std'
+            sds/=std_ar
+            print 'Masking bad values'
+            imagecube = np.ma.masked_where(sds>sigmaclip,imagecube)
+            imagecube.fill_value=np.nan
+            imagecube=imagecube.data
+            del sds
+            print 'Done'
         try:
-            comb=ic.combineImages(imagecube)
+            comb = op(imagecube,axis=0)
+        except TypeError:
+            comb = op(imagecube)
         except Exception:
             return 'Unable to combine images. Possibly not enough memory or images are not the same shape.'
         if imagelist:
-            h.add_comment('Result of combining '+imagelist+' images')
+            h.add_comment('Result of combining a series of images')
         if os.path.exists(output) and overwrite:
             os.system('rm '+output)
-        #!!! Maybe comb used to be comb.data. Get rid of this ccd @#$
         pyfits.writeto(output,comb,header=h)
-
         return 'Successfully combined images.'
 
 
