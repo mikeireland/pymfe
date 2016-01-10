@@ -83,7 +83,7 @@ xx, wave, blaze = rhea2_format.spectral_format()
 
 #Things to change each time if you want
 do_we_extract=False
-do_bcor=True
+o_bcor=True
 med_cut=0.0 #0 for Th/Ar
 
 save_file = save_file_prefix + ".fits"
@@ -212,7 +212,7 @@ def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 1.0, med_
     
     return wave_ref, ref_spect
 
-def extract_spectra(files, location=('151.2094d','-33.865d',100.0), coord=None, outfile = None, do_bcor=True):
+def extract_spectra(files, location=('151.2094','-33.865',100.0), coord=None, outfile = None, do_bcor=True):
     """TODO: Add in coordinates from the header if coord=None"""
     fluxes = []
     vars = []
@@ -224,8 +224,12 @@ def extract_spectra(files, location=('151.2094d','-33.865d',100.0), coord=None, 
         header = pyfits.getheader(file)
         date = Time(header['DATE-OBS'], location=location)
         if do_bcor:
+            if not coord:
+                coord=SkyCoord( ra=float(header['RA']) , dec=float(header['DEC']) , unit='deg')
+            if not location:
+                location=( float(header['LONG']), float(header['LAT']), float(header['HEIGHT']))
             #(obs_long, obs_lat, obs_alt, ra2000, dec2000, jd, debug=False)
-            bcors.append( 1e3*pyasl.helcorr(float(location[0][:-1]),float(location[1][:-1]),location[2],coord.ra.deg, coord.dec.deg,date.jd)[0] )
+            bcors.append( 1e3*pyasl.helcorr(float(location[0]),float(location[1]),location[2],coord.ra.deg, coord.dec.deg,date.jd)[0] )
         else:
             bcors.append(0.0)
         dates.append(date)

@@ -204,21 +204,14 @@ class Calibration():
         elif method == 'sum':
             op = np.nansum
         if sigmaclip is not None:
-            print 'Sigma clipping images'
-            print 'Calculating mean'
             mean_ar=np.mean(imagecube,axis=0)
-            print 'Calculating standard deviation'
             std_ar=np.std(imagecube,axis=0)
-            print 'subtracting mean'
             sds = imagecube-mean_ar
-            print 'Dividing by std'
             sds/=std_ar
-            print 'Masking bad values'
             imagecube = np.ma.masked_where(sds>sigmaclip,imagecube)
             imagecube.fill_value=np.nan
             imagecube=imagecube.data
             del sds
-            print 'Done'
         try:
             comb = op(imagecube,axis=0)
         except TypeError:
