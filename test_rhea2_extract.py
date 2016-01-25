@@ -62,20 +62,23 @@ save_file = "thar06.fit"
 #This is "Sinistra"
 #coord = SkyCoord('17 59 01.59191 -09 46 25.07',unit=(u.hourangle, u.deg))
 
+#Select a dark here
+dir = "/Users/mireland/data/rhea2/tauCeti/"
+
+
 star = "thar"
 save_file_prefix = "tauCeti_thar1114" 
+star_dark = pyfits.getdata(dir + "Masterdark_thar.fit")
 
 star = "tauCeti"
 save_file_prefix = "tauCeti1114"
+star_dark = pyfits.getdata(dir + "Masterdark_target.fit")
+
 
 files = glob.glob("/Users/mireland/data/rhea2/tauCeti/201511*/*" + star + "*.fit")
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
-#Select a dark here
-dir = "/Users/mireland/data/rhea2/tauCeti/"
-dark = pyfits.getdata(dir + "Masterdark_thar.fit")
-#dark = pyfits.getdata(dir + "Masterdark_target.fit")
-
+flat_dark = pyfits.getdata(dir + "Masterdark_flat.fit")
 
 rhea2_format = pymfe.rhea.Format()
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=False)
@@ -83,12 +86,15 @@ xx, wave, blaze = rhea2_format.spectral_format()
 
 #Things to change each time if you want
 do_we_extract=False
-o_bcor=True
-med_cut=0.0 #0 for Th/Ar
+do_bcor=False
+med_cut=0.6 #0 for Th/Ar
 
 save_file = save_file_prefix + ".fits"
 rv_file = save_file_prefix + "_rv.csv"
 rv_sig_file = save_file_prefix + "_rv_sig.csv"
+
+file_dirs = [f[f.rfind('/')-8:f.rfind('/')] for f in files]
+flat_files = ["/Users/mireland/data/rhea2/tauCeti/" + f + "/Masterflat.fit" for f in file_dirs]
 #-----------------------------------------
 def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref, return_spect=False):
     """Find the residuals to a fit of a (subsampled) 
@@ -212,15 +218,17 @@ def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 1.0, med_
     
     return wave_ref, ref_spect
 
-def extract_spectra(files, location=('151.2094','-33.865',100.0), coord=None, outfile = None, do_bcor=True):
+def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094','-33.865',100.0), coord=None, outfile = None, do_bcor=True):
     """TODO: Add in coordinates from the header if coord=None"""
     fluxes = []
     vars = []
     dates = []
     bcors = []
 
-    for file in files:
-        data = pyfits.getdata(file) - dark
+    #!!! This is dodgy, as files and flat_files should go together in a dict. !!!
+    for ix,file in enumerate(files):
+        data = pyfits.getdata(file) - star_dark
+        flat = pyfits.getdata(flat_files[ix]) - flat_dark
         header = pyfits.getheader(file)
         date = Time(header['DATE-OBS'], location=location)
         if do_bcor:
@@ -234,10 +242,20 @@ def extract_spectra(files, location=('151.2094','-33.865',100.0), coord=None, ou
             bcors.append(0.0)
         dates.append(date)
         flux,var = rhea2_extract.one_d_extract(data=data, rnoise=20.0)
+        flat_flux,fvar = rhea2_extract.one_d_extract(data=flat, rnoise=20.0)
+        for j in range(flat_flux.shape[0]):
+            medf = np.median(flat_flux[j])
+            flat_flux[j] /= medf
+            fvar[j] /= medf**2
+        
+        #Ignore the uncertainty in the flat and divide.
+        flux /= flat_flux
+        var /= np.sqrt(flat_flux)
         #pdb.set_trace()
         fluxes.append(flux[:,:,0])
         vars.append(var[:,:,0])
 
+    
     fluxes = np.array(fluxes)
     vars = np.array(vars)
     bcors = np.array(bcors)
@@ -261,7 +279,7 @@ def extract_spectra(files, location=('151.2094','-33.865',100.0), coord=None, ou
 
 #Extract all data.
 if do_we_extract:
-    fluxes,vars,wave,bcors,mjds = extract_spectra(files, coord=coord,outfile=save_file, do_bcor=do_bcor)
+    fluxes,vars,wave,bcors,mjds = extract_spectra(files, star_dark, flat_files, flat_dark, coord=coord,outfile=save_file, do_bcor=do_bcor)
 if not save_file is None:
     hl = pyfits.open(save_file)
     fluxes = hl[0].data
