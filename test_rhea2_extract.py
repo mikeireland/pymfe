@@ -1,8 +1,33 @@
-"""A script to test the extraction of a bunch of RHEA2 spectra
+"""A script to test the extraction of a bunch of RHEA2 spectra.
+
+The functions within this module should go in the Extractor if they
+are general. Spectrograph specific functions should go in the RHEA module
+
 
 TODO:
-1) Output the reference spectrum separately
-2`) Put extraction in a script where tramlines are tweaked.
+0) Make sure that the Th/Ar reference is created from the same epoch that the wavelength 
+scale solution is made at. i.e. add a new wavelength solution script, e.g. with 
+creation of new data/orderXXX.txt files from an averaged Th/Ar for each night. This
+would be an extraction then a fitting of Gaussians to each line.
+
+1) Output the reference spectrum separately, so it can be imported. This is 
+*super* important because one test we want to do is to input the sun as a reference
+for Tau Ceti (part of ardata.fits.gz)
+
+2) Put extraction in a script where tramlines are tweaked using fit_x_to_image.
+
+3) Add flat field creation scripts to this.
+
+4) Correct for Telluric lines... (in data/ardata.fits.gz).
+For Telluric lines, the wavelength scale has to be corrected epoch to epoch. 
+
+5) Find and correct for common bad pixels.
+
+6) The GHOST in orders 28 to 30 should be marked as high variance. 
+
+7) Actually use a (neatened version of) this script for the gamma Crucis and
+sun data.
+
 """
 
 from __future__ import division, print_function
@@ -74,7 +99,6 @@ star = "tauCeti"
 save_file_prefix = "tauCeti1114"
 star_dark = pyfits.getdata(dir + "Masterdark_target.fit")
 
-
 files = glob.glob("/Users/mireland/data/rhea2/tauCeti/201511*/*" + star + "*.fit")
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
@@ -84,10 +108,15 @@ rhea2_format = pymfe.rhea.Format()
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=False)
 xx, wave, blaze = rhea2_format.spectral_format()
 
-#Things to change each time if you want
+#Things to change each time if you want. Below for star
 do_we_extract=False
-do_bcor=False
+do_bcor=True
 med_cut=0.6 #0 for Th/Ar
+
+#Here for Th/Ar
+#do_we_extract=True
+#do_bcor=False
+#med_cut=0
 
 save_file = save_file_prefix + ".fits"
 rv_file = save_file_prefix + "_rv.csv"
@@ -219,7 +248,19 @@ def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 1.0, med_
     return wave_ref, ref_spect
 
 def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094','-33.865',100.0), coord=None, outfile = None, do_bcor=True):
-    """TODO: Add in coordinates from the header if coord=None"""
+    """Extract the spectrum from a file, given a dark file, a flat file and
+    a dark for the flat. 
+    
+    Parameters
+    ----------
+    files: list of strings
+        One string for each file. CAn be on separate nights - a full pathname should be given.
+    flat_files: list of strings.
+        One string for each star file. CAn be on separate nights - a full pathname should be given.
+    location: (lattitude:string, longitude:string, elevation:string)
+        The location on Earth where the data were taken.
+    
+    """
     fluxes = []
     vars = []
     dates = []
@@ -248,9 +289,11 @@ def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094
             flat_flux[j] /= medf
             fvar[j] /= medf**2
         
-        #Ignore the uncertainty in the flat and divide.
+        #Calculate the variance after dividing by the flat
+        var = var/flat_flux**2 + fvar * flux**2/flat_flux**4
+        #Now normalise the flux.
         flux /= flat_flux
-        var /= np.sqrt(flat_flux)
+
         #pdb.set_trace()
         fluxes.append(flux[:,:,0])
         vars.append(var[:,:,0])

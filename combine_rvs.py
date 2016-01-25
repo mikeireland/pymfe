@@ -1,6 +1,7 @@
 # This script combines RVs for Th/Ar and star observations
-#Note that the uncertainties don't seem to be correct, because the 
-#raw data 
+# It weights the nearest nref Th/Ar velocities by time**weight_exponent,
+# finds the weighted average and subtracts this weighted velocity from
+# each target velocity.
 
 from __future__ import print_function, division
 import numpy as np
@@ -9,6 +10,8 @@ plt.ion()
 
 star_prefix = "tauCeti1114"
 thar_prefix = "tauCeti_thar1114"
+
+weight_exponent = -0.5
 nref = 6
 m_min=2
 m_max=28
@@ -36,6 +39,7 @@ nf = rvs.shape[0]
 thar_rvs_fitted = thar_rvs.copy()
 rvs_corrected = rvs.copy()
 
+#Fit to each file, in order to take out the rotation of the chip.
 for i in range(nf_thar):
     x = np.arange(nm)
     p = np.polyfit(x,thar_rvs[i],1,w=thar_rv_sigs[i]**(-2.0))
@@ -45,11 +49,11 @@ for i in range(nf_thar):
 for i in range(nf):
     delta_t = np.abs(mjds[i] - thar_mjds)
     sorted_ix = np.argsort(delta_t)[0:nref]
-    weights = delta_t[sorted_ix]**(-0.5)
-    thar_ref = np.average(thar_rvs[sorted_ix], weights=weights,axis=0)
+    weights = delta_t[sorted_ix]**weight_exponent
+    thar_ref = np.average(thar_rvs_fitted[sorted_ix], weights=weights,axis=0)
     rvs_corrected[i] = rvs[i] - thar_ref
     
-plt.clf()
+#plt.clf()
 
 rvs_med    = np.median(rvs_corrected[:,m_min:m_max+1],axis=1)
 rvs_med_sig = np.std(rvs_corrected[:,m_min:m_max+1],axis=1)/np.sqrt(m_max-m_min)*1.2

@@ -20,7 +20,7 @@ class Format():
     """A class for each possible configuration of the spectrograph. The initialisation 
     function takes a single string representing the configuration.
     
-    sim must include:
+    sim must include (!!! i.e. it should inherit and over-ride default generic modules):
     
     spectral_format_with_matrix()
     make_lenslets()
