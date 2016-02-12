@@ -43,6 +43,16 @@ class Format():
             self.m_max = 129
             self.m_ref = 112        ## The reference order.
             self.extra_rot = 1.0    ## Extra rotation in degrees
+            self.transpose = False  ## Do we transpose raw fits files
+        elif (spect == 'subaru'):
+            self.szy = 2750
+            self.szx = 2200
+            self.xbin = 1
+            self.m_min = 68
+            self.m_max = 95
+            self.m_ref = 82
+            self.extra_rot = 1.0
+            self.transpose = True
         else:
             print("Unknown spectrograph arm!")
             raise UserWarning
@@ -109,30 +119,40 @@ class Format():
         dir: string
             Directory. If none given, a fit to Tobias's default pixels in "data" is made."""
         if len(init_mod_file)==0:
-            params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/wavemod.txt'))
+            params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/wavemod.txt'))
         if (len(pixdir) == 0):
-            pixdir = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/')
-        ms = np.array([])
-        waves = np.array([])
-        ys = np.array([])
-        #The next loop reads in Tobias's wavelengths.
-        for m in range(self.m_min, self.m_max+1):
-            fname = pixdir + "order{0:d}.txt".format(m)
-            pix = np.loadtxt(fname)
-            ms = np.append(ms,m*np.ones(pix.shape[0]))
-            waves = np.append(waves,pix[:,0])
-            #Tobias's definition of the y-axis is backwards compared to python.
-            ys = np.append(ys,self.szy - pix[:,1])
+            pixdir = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect + '/')
+        #The next loop reads in Mike's or Tobias's wavelengths. Try for Mike's single file format first.
+        if os.path.exists(pixdir + "arclines.txt"):
+            lines = np.loadtxt(pixdir + "arclines.txt")
+            ms    = lines[:,3]
+            waves = lines[:,0]
+            ys    = lines[:,1]
+        else:
+            ms = np.array([])
+            waves = np.array([])
+            ys = np.array([])
+            for m in range(self.m_min, self.m_max+1):
+                fname = pixdir + "order{0:d}.txt".format(m)
+                try:
+                    pix = np.loadtxt(fname)
+                except:
+                    print("Error: arc line files don't exist!")
+                    raise UserWarning
+                ms = np.append(ms,m*np.ones(pix.shape[0]))
+                waves = np.append(waves,pix[:,0])
+                #Tobias's definition of the y-axis is backwards compared to python.
+                ys = np.append(ys,self.szy - pix[:,1])
 
-        init_resid = self.wave_fit_resid(params0, ms, waves, ys)
-        bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, waves, ys))
-        final_resid = self.wave_fit_resid(bestp[0], ms, waves, ys)
-        print("Fit residual RMS (Angstroms): {6.3f}".format(np.std(final_resid)))
+        init_resid = self.wave_fit_resid(params0, ms, waves, ys,ydeg=ydeg,xdeg=xdeg)
+        bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, waves, ys,ydeg,xdeg))
+        final_resid = self.wave_fit_resid(bestp[0], ms, waves, ys,ydeg=ydeg,xdeg=xdeg)
+        print("Fit residual RMS (Angstroms): {0:6.3f}".format(np.std(final_resid)))
         params = bestp[0].reshape( (ydeg+1,xdeg+1) )
         outf = open(outdir + "wavemod.txt","w")
         for i in range(ydeg+1):
             for j in range(xdeg+1):
-                outf.write("{0:9.4e} ".format(params[i,j]))
+                outf.write("{0:10.5e} ".format(params[i,j]))
             outf.write("\n")
         outf.close()
         
@@ -163,7 +183,7 @@ class Format():
             raise UserWarning
         return sim_im
         
-    def spectral_format(self,xoff=0.0,yoff=0.0,ccd_centre={}):
+    def spectral_format(self,xoff=0.0,yoff=0.0,ccd_centre={},imgfile = None):
         """Create a spectrum, with wavelengths sampled in 2 orders.
         
         Parameters
@@ -211,8 +231,8 @@ class Format():
         blaze_int = np.zeros((nm,self.szy) )
         
         ## Should be an option here to get files from a different directory.
-        wparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/wavemod.txt'))
-        xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/xmod.txt'))
+        wparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/wavemod.txt'))
+        xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/xmod.txt'))
         
         ys = np.arange(self.szy)
         ## Loop through m 
@@ -243,6 +263,16 @@ class Format():
             disp = wave_int[m - self.m_min,self.szy/2+1] - wcen
             order_width = (wcen/m)/disp
             blaze_int[m - self.m_min,:] = np.sinc( (ys-self.szy/2)/order_width)**2
+
+        #Plot this if we have an image file
+        if imgfile:
+            im = pyfits.getdata(imgfile)
+            if not self.transpose:
+                im=im.T
+            plt.clf()
+            plt.imshow( np.arcsinh((im-np.median(im))/100),aspect='auto', interpolation='nearest',cmap=cm.gray)
+            plt.axis([0,im.shape[1],im.shape[0],0])
+            plt.plot(x_int.T + + self.szx//2)
 
         return x_int,wave_int,blaze_int
 
@@ -278,8 +308,9 @@ class Format():
 
         return old_x+the_shift
         
-    def fit_x_to_image(self, image, outdir='./', decrease_dim=10, search_pix=5):
-        """Fit a "tramline" map"""
+    def fit_x_to_image(self, image, outdir='./', decrease_dim=10, search_pix=5, xdeg=4):
+        """Fit a "tramline" map. Note that an initial map has to be pretty close, 
+        i.e. within "search_pix" everywhere. """
         xx,wave,blaze=self.spectral_format()
         xs = self.adjust_x(xx,image)
 #        the_shift = xx_new[0]-xx[0]
@@ -297,7 +328,7 @@ class Format():
                 peakpix = image_med[j,self.szx//2 + xi -search_pix:self.szx//2 + xi +search_pix+1]
                 xs[i,j] += np.argmax(peakpix) - search_pix
                 
-        self.fit_to_x(xs,ys=ys)
+        self.fit_to_x(xs,ys=ys,xdeg=xdeg)
         
     def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2, xdeg=4, ys=[], decrease_dim=1):
         """Fit to an (nm,ny) array of x-values.
@@ -322,7 +353,7 @@ class Format():
         dir: string
             Directory. If none given, a fit to Tobias's default pixels in "data" is made."""
         if len(init_mod_file)==0:
-            params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/xmod.txt'))
+            params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/xmod.txt'))
           
         #Create an array of y and m values.
         xs = x_to_fit.copy()
