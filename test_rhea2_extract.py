@@ -3,6 +3,14 @@
 The functions within this module should go in the Extractor if they
 are general. Spectrograph specific functions should go in the RHEA module
 
+********************************************************************************
+NOTE:
+----
+The functions in this file will be removed shortly once they are verified to 
+work post-refactor. New functions should be defined in one of the pre-existing
+modules/classes as appropriate, rather than in test scripts.
+********************************************************************************
+
 
 TODO:
 0) Make sure that the Th/Ar reference is created from the same epoch that the wavelength 
