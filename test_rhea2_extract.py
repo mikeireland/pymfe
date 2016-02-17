@@ -3,6 +3,14 @@
 The functions within this module should go in the Extractor if they
 are general. Spectrograph specific functions should go in the RHEA module
 
+********************************************************************************
+NOTE:
+----
+The functions in this file will be removed shortly once they are verified to 
+work post-refactor. New functions should be defined in one of the pre-existing
+modules/classes as appropriate, rather than in test scripts.
+********************************************************************************
+
 
 TODO:
 0) Make sure that the Th/Ar reference is created from the same epoch that the wavelength 
@@ -125,9 +133,9 @@ rv_sig_file = save_file_prefix + "_rv_sig.csv"
 file_dirs = [f[f.rfind('/')-8:f.rfind('/')] for f in files]
 flat_files = ["/Users/mireland/data/rhea2/tauCeti/" + f + "/Masterflat.fit" for f in file_dirs]
 #-----------------------------------------
-def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref, return_spect=False):
-    """Find the residuals to a fit of a (subsampled) 
-    reference spectrum to an observed spectrum. 
+def rv_shift_resid(params, wave, spect, spect_sdev, spline_ref, return_spect=False):
+    """Find the residuals to a fit of a (subsampled)reference spectrum to an 
+    observed spectrum. 
     
     The function for parameters p[0] through p[3] is:
     
@@ -139,10 +147,19 @@ def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref, return_spect=False)
     
     Parameters
     ----------
+    params: 
+        ...
     wave: float array
         Wavelengths for the observed spectrum.
     spect: float array
         The observed spectrum
+    spect_sdev: 
+        ...
+    spline_ref: 
+        ...
+    return_spect: boolean
+        Whether to return the fitted spectrum or the 
+        
     wave_ref: float array
         The wavelengths of the reference spectrum
     ref: float array
@@ -167,9 +184,27 @@ def rv_shift_resid(params, wave,spect,spect_sdev,spline_ref, return_spect=False)
     else:
         return (fitted_spect - spect)/spect_sdev
 
-def rv_shift_jac(params, wave,spect,spect_sdev,spline_ref):
+def rv_shift_jac(params, wave, spect, spect_sdev, spline_ref):
     """Jacobian function for the above. Dodgy... sure, but
     without this there seems to be numerical derivative instability.
+    
+    Parameters
+    ----------
+    params: 
+        ...
+    wave: float array
+        Wavelengths for the observed spectrum.
+    spect: float array
+        The observed spectrum
+    spect_sdev: 
+        ...
+    spline_ref: 
+        ...
+        
+    Returns
+    -------
+    jac: 
+        ...
     """
     ny = len(spect)
     xx = np.arange(ny)-ny//2
@@ -182,9 +217,36 @@ def rv_shift_jac(params, wave,spect,spect_sdev,spline_ref):
     jac[:,0] = (spline_ref(wave*(1.0 - (params[0] + 1.0)/const.c.si.value))*norm - fitted_spect)/spect_sdev
     return jac
 
-def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 1.0, med_cut=0.6,gauss_hw=7):
-    """Create a reference spectrum from a series of target spectra, after correcting the
-    spectra barycentrically. """
+def create_ref_spect(wave, fluxes, vars, bcors, rebin_fact=2, gauss_sdev = 1.0, med_cut=0.6,gauss_hw=7):
+    """Create a reference spectrum from a series of target spectra, after 
+    correcting the spectra barycentrically. 
+    
+    Parameters
+    ----------
+    wave:
+        ...
+    fluxes:
+        ...
+    vars:
+        ...
+    bvors:
+        ...
+    rebin_fact:
+        ...
+    gauss_sdev:
+        ...
+    med_cut:
+        ...
+    gauss_hw:
+        ...
+    
+    Returns
+    -------
+    wave_ref:
+        ...
+    ref_spect:
+        ...
+    """
     nm = fluxes.shape[1]
     ny = fluxes.shape[2]
     nf = fluxes.shape[0]
@@ -247,7 +309,7 @@ def create_ref_spect(wave,fluxes,vars,bcors,rebin_fact=2, gauss_sdev = 1.0, med_
     
     return wave_ref, ref_spect
 
-def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094','-33.865',100.0), coord=None, outfile = None, do_bcor=True):
+def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094','-33.865',100.0), coord=None, outfile=None, do_bcor=True):
     """Extract the spectrum from a file, given a dark file, a flat file and
     a dark for the flat. 
     
@@ -255,12 +317,36 @@ def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094
     ----------
     files: list of strings
         One string for each file. CAn be on separate nights - a full pathname should be given.
+    star_dark:
+        
     flat_files: list of strings.
         One string for each star file. CAn be on separate nights - a full pathname should be given.
+    flat_dark:
+        
     location: (lattitude:string, longitude:string, elevation:string)
         The location on Earth where the data were taken.
+    coord:
+    
+    outfile:
+    
+    do_bcor: boolean
+    
+    
+    Returns
+    -------
+    fluxes:
+    
+    vars:
+    
+    wave:
+    
+    bcors:
+    
+    mjds:
     
     """
+    # Initialise list of return values 
+    # Each index represents a single observation
     fluxes = []
     vars = []
     dates = []
@@ -268,10 +354,16 @@ def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094
 
     #!!! This is dodgy, as files and flat_files should go together in a dict. !!!
     for ix,file in enumerate(files):
+        # Dark correct the science and flat frames
         data = pyfits.getdata(file) - star_dark
         flat = pyfits.getdata(flat_files[ix]) - flat_dark
+        
         header = pyfits.getheader(file)
+        
         date = Time(header['DATE-OBS'], location=location)
+        dates.append(date)
+        
+        # Determine the barycentric correction
         if do_bcor:
             if not coord:
                 coord=SkyCoord( ra=float(header['RA']) , dec=float(header['DEC']) , unit='deg')
@@ -281,9 +373,11 @@ def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094
             bcors.append( 1e3*pyasl.helcorr(float(location[0]),float(location[1]),location[2],coord.ra.deg, coord.dec.deg,date.jd)[0] )
         else:
             bcors.append(0.0)
-        dates.append(date)
-        flux,var = rhea2_extract.one_d_extract(data=data, rnoise=20.0)
-        flat_flux,fvar = rhea2_extract.one_d_extract(data=flat, rnoise=20.0)
+        
+        # Extract the fluxes and variance for the science and flat frames
+        flux, var = rhea2_extract.one_d_extract(data=data, rnoise=20.0)
+        flat_flux, fvar = rhea2_extract.one_d_extract(data=flat, rnoise=20.0)
+        
         for j in range(flat_flux.shape[0]):
             medf = np.median(flat_flux[j])
             flat_flux[j] /= medf
@@ -291,6 +385,7 @@ def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094
         
         #Calculate the variance after dividing by the flat
         var = var/flat_flux**2 + fvar * flux**2/flat_flux**4
+        
         #Now normalise the flux.
         flux /= flat_flux
 
@@ -298,12 +393,12 @@ def extract_spectra(files, star_dark, flat_files, flat_dark, location=('151.2094
         fluxes.append(flux[:,:,0])
         vars.append(var[:,:,0])
 
-    
     fluxes = np.array(fluxes)
     vars = np.array(vars)
     bcors = np.array(bcors)
     mjds = np.array([d.mjd for d in dates])
-
+    
+    # Output and save the results
     if not outfile is None:
         hl = pyfits.HDUList()
         hl.append(pyfits.ImageHDU(fluxes,header))
