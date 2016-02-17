@@ -281,7 +281,7 @@ class RadialVelocity():
                 data = pyfits.getdata(file) - star_dark
                 flat = pyfits.getdata(flat_files[ix]) - flat_dark
             except: 
-                print 'Unable to calibrate file ', file, '. Check that format of data arrays are consistent.'
+                print('Unable to calibrate file ' + file + '. Check that format of data arrays are consistent.')
                 continue            
             header = pyfits.getheader(file)
             
