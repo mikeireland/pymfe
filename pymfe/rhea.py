@@ -48,7 +48,7 @@ class Format():
             self.szy = 2750
             self.szx = 2200
             self.xbin = 1
-            self.m_min = 68
+            self.m_min = 72#68
             self.m_max = 95
             self.m_ref = 82
             self.extra_rot = 1.0
@@ -56,6 +56,7 @@ class Format():
         else:
             print("Unknown spectrograph arm!")
             raise UserWarning
+        self.rnoise = 20.0
         ## Some slit parameters...
         self.mode       = mode
         self.nl         = 1
@@ -308,7 +309,7 @@ class Format():
 
         return old_x+the_shift
         
-    def fit_x_to_image(self, image, outdir='./', decrease_dim=10, search_pix=5, xdeg=4):
+    def fit_x_to_image(self, image, outdir='./', decrease_dim=10, search_pix=20, xdeg=4):
         """Fit a "tramline" map. Note that an initial map has to be pretty close, 
         i.e. within "search_pix" everywhere. """
         xx,wave,blaze=self.spectral_format()

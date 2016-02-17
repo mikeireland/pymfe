@@ -7,6 +7,8 @@ order = 1e7/31.6*2*np.sin(np.radians(64.0))/argon
 plt.plot(1375 - (order - np.round(order))/order*1.8e5)
 plt.plot(1375 - (order - np.round(order)+1)/order*1.8e5)
 plt.plot(1375 - (order - np.round(order)-1)/order*1.8e5)
+
+Super-bright Neon line may be 7032.
 """
 
 from __future__ import division, print_function
@@ -37,6 +39,9 @@ all_files = glob.glob(dir + "*.fits")
 flat_files = all_files[55:58]
 arc_files = all_files[52:55]
 
+arc_files = ["/Users/mireland/data/rhea_subaru/images/20160216133539.fits"]
+flat_files = ["/Users/mireland/data/rhea_subaru/images/20160216133507.fits"]
+
 rhea2_format = pymfe.rhea.Format(spect='subaru')
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=True)
 xx, wave, blaze = rhea2_format.spectral_format()
@@ -44,6 +49,10 @@ xx, wave, blaze = rhea2_format.spectral_format()
 
 flat_data = pyfits.getdata(flat_files[0])
 arc_data = pyfits.getdata(arc_files[0])
+
+flat_data -= np.median(flat_data)
+arc_data -= np.median(arc_data)
+
 flat_flux,flat_var = rhea2_extract.one_d_extract(data=flat_data.T, rnoise=20.0)
 arc_flux,arc_var = rhea2_extract.one_d_extract(data=arc_data.T, rnoise=20.0)
 

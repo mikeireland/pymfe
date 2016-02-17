@@ -20,6 +20,7 @@ try:
 except:
     import astropy.io.fits as pyfits
 import pdb
+from astropy.modeling import models, fitting
 
 class Extractor():
     """A class for each arm of the spectrograph. The initialisation function takes a 
@@ -385,4 +386,44 @@ class Extractor():
         else:
             return extracted_flux, extracted_var
         
+        
+    def find_lines(self,data,arcfile='lines.txt',outfile='arclines.txt', hw=20):
+        """Find lines near the locations of input arc lines.
+        
+        Parameters
+        ----------
+        data: numpy array
+            data array
+            
+        arcfile: string
+            file containing lines """
+
+        #First, extract the data
+        flux,var = self.one_d_extract(data=data, rnoise=self.sim.rnoise)
+        #Read in the lines
+        lines = np.loadtxt(arcfile)
+        #Only use the first lenslet.
+        flux = flux[:,:,0]
+        ny = self.x_map.shape[1]
+        nm = self.x_map.shape[0]
+        nx = self.sim.szx
+        lines_out=[]
+        for m in range(nm):
+            w_ix = np.interp(lines,self.w_map[m,:],np.arange(ny))
+            ww = np.where( (w_ix >= hw) & (w_ix < ny-hw) )[0]
+            w_ix = w_ix[ww]
+            arclines_to_fit = lines[ww]
+            for i,ix in enumerate(w_ix):
+                x = np.arange(ix-hw,ix+hw,dtype=np.int)
+                y = flux[m,x]
+                y -= np.min(y) #Rough...
+                if np.max(y)< 20*self.sim.rnoise:
+                    continue
+                g_init = models.Gaussian1D(amplitude=np.max(y), mean=x[np.argmax(y)], stddev=1.5)
+                fit_g = fitting.LevMarLSQFitter()
+                g = fit_g(g_init, x, y)
+                #Wave, ypos, xpos, m, amplitude, fwhm
+                lines_out.append( [arclines_to_fit[i],g.mean.value,nx//2+np.interp(g.mean.value,np.arange(ny),self.x_map[m]),m,g.amplitude.value, g.stddev.value*2.3548] )
+        lines_out = np.array(lines_out)
+        np.savetxt(outfile,lines_out,fmt='%9.4f %7.2f %7.2f %2d %7.1e %4.1f')
         
