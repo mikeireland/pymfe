@@ -277,9 +277,12 @@ class RadialVelocity():
         #!!! This is dodgy, as files and flat_files should go together in a dict
         for ix,file in enumerate(files):
             # Dark correct the science and flat frames
-            data = pyfits.getdata(file) - star_dark
-            flat = pyfits.getdata(flat_files[ix]) - flat_dark
-            
+            try:
+                data = pyfits.getdata(file) - star_dark
+                flat = pyfits.getdata(flat_files[ix]) - flat_dark
+            except: 
+                print 'Unable to calibrate file ', file, '. Check that format of data arrays are consistent.'
+                continue            
             header = pyfits.getheader(file)
             
             date = Time(header['DATE-OBS'], location=location)
