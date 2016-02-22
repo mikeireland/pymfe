@@ -7,7 +7,10 @@ used for extraction.
 Most of the code below has been moved from the script "test_rhea2_extract.py".
 Work still needs to be done post-refactor to ensure function input and outputs
 are sensible, their docstrings are informative and they follow the principles of
-Object Oriented Programming - such as the Single Responsibility Principle.
+Object Oriented Programming - such as the Single Responsibility Principle (Along
+with a general clean up of the code and comments, such as having the code meet 
+the python line length guidelines --> the main benefit of which is having 
+multiple editors open side by side on smaller screens)
 
 TODO
 ----
@@ -128,7 +131,8 @@ class RadialVelocity():
         jac[:,3] = fitted_spect/spect_sdev
         jac[:,2] = fitted_spect*xx/spect_sdev
         jac[:,1] = fitted_spect*xx**2/spect_sdev
-        jac[:,0] = (spline_ref(wave*(1.0 - (params[0] + 1.0)/const.c.si.value))*norm - fitted_spect)/spect_sdev
+        jac[:,0] = (spline_ref(wave*(1.0 - (params[0] + 1.0)/const.c.si.value))*
+                    norm - fitted_spect)/spect_sdev
         return jac
 
     def create_ref_spect(self, wave, fluxes, vars, bcors, rebin_fact=2, 
@@ -138,16 +142,16 @@ class RadialVelocity():
         
         Parameters
         ----------
-        wave:
-            ...
-        fluxes:
-            ...
-        vars:
-            ...
-        bvors:
-            ...
-        rebin_fact:
-            ...
+        wave: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+        fluxes: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation.
+        rebin_fact: int
+            Factor by which to rebin.
         gauss_sdev:
             ...
         med_cut:
@@ -157,14 +161,18 @@ class RadialVelocity():
         
         Returns
         -------
-        wave_ref:
-            ...
-        ref_spect:
-            ...
+        wave_ref: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel*2+2), 
+            where the wavelength scale has been interpolated.
+        ref_spect: 2D np.array(float)
+            Reference spectrum of form (Order, Flux/pixel*2+2), 
+            where the flux scale has been interpolated.
         """
         nm = fluxes.shape[1]
         ny = fluxes.shape[2]
         nf = fluxes.shape[0]
+        
+        C = const.c.si.value
 
         #Create arrays for our outputs.
         wave_ref = np.empty( (nm,rebin_fact*ny + 2) )
@@ -179,11 +187,12 @@ class RadialVelocity():
 
         #Create the final wavelength grid.    
         for j in range(nm):
-            wave_ref[j,1:-1] = np.interp(np.arange(rebin_fact*ny)/rebin_fact,np.arange(ny),wave[j,:])
+            wave_ref[j,1:-1] = np.interp(np.arange(rebin_fact*ny)/rebin_fact, 
+                                         np.arange(ny),wave[j,:])
             #Fill in the end wavelengths, including +/-100 km/s from the ends.
             wave_ref[j,-2] = wave_ref[j,-3] + (wave_ref[j,-3]-wave_ref[j,-4])
-            wave_ref[j,0]  = wave_ref[j,1] * (const.c.si.value + 1e5)/const.c.si.value
-            wave_ref[j,-1] = wave_ref[j,-2] * (const.c.si.value - 1e5)/const.c.si.value
+            wave_ref[j,0]  = wave_ref[j,1] * (C + 1e5)/C
+            wave_ref[j,-1] = wave_ref[j,-2] * (C - 1e5)/C
 
         #Barycentric correct
         for i in range(nf):
@@ -191,8 +200,8 @@ class RadialVelocity():
                 # Awkwardly, we've extended the wavelength scale by 2 elements,  
                 # but haven't yet extended the fluxes...
                 ww = wave_ref[j,1:-1]
-                fluxes_rebin[i,j] = np.interp(ww*(1-bcors[i]/const.c.si.value), 
-                                              ww[::-1],fluxes_rebin[i,j,::-1])
+                fluxes_rebin[i,j] = np.interp(ww*(1-bcors[i]/C), ww[::-1],
+                                              fluxes_rebin[i,j,::-1])
                 
         #Subsample a reference spectrum using opticstools.utils.regrid_fft
         #and interpolate to fit. 
@@ -223,13 +232,14 @@ class RadialVelocity():
             one_order[gauss_hw:-gauss_hw] = flux_ref[j,:]
             one_order[:gauss_hw] = one_order[gauss_hw]
             one_order[-gauss_hw:] = one_order[-gauss_hw-1]
-            ref_spect[j,:] = np.convolve(one_order, gg, mode='same')[gauss_hw-1:1-gauss_hw]
+            ref_spect[j,:] = np.convolve(one_order, gg, 
+                                         mode='same')[gauss_hw-1:1-gauss_hw]
         
         return wave_ref, ref_spect
 
-    def extract_spectra(self, files, star_dark, flat_files, flat_dark, extractor, 
-                        location=('151.2094','-33.865',100.0), coord=None, 
-                        outfile=None, do_bcor=True):
+    def extract_spectra(self, files, star_dark, flat_files, flat_dark,  
+                        extractor, location=('151.2094','-33.865',100.0),  
+                        coord=None, do_bcor=True):
         """Extract the spectrum from a file, given a dark file, a flat file and
         a dark for the flat. 
         
@@ -247,25 +257,23 @@ class RadialVelocity():
             
         location: (lattitude:string, longitude:string, elevation:string)
             The location on Earth where the data were taken.
-        coord:
-        
-        outfile:
-        
+        coord: astropy.coordinates.sky_coordinate.SkyCoord
+            The coordinates of the observation site
         do_bcor: boolean
-        
+            Flag for whether to do barycentric correction
         
         Returns
         -------
-        fluxes:
-        
-        vars:
-        
-        wave:
-        
-        bcors:
-        
-        mjds:
-        
+        fluxes: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation.
+        wave: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation.
         """
         # Initialise list of return values 
         # Each index represents a single observation
@@ -281,7 +289,8 @@ class RadialVelocity():
                 data = pyfits.getdata(file) - star_dark
                 flat = pyfits.getdata(flat_files[ix]) - flat_dark
             except: 
-                print('Unable to calibrate file ' + file + '. Check that format of data arrays are consistent.')
+                print('Unable to calibrate file ' + file + 
+                      '. Check that format of data arrays are consistent.')
                 continue            
             header = pyfits.getheader(file)
             
@@ -326,45 +335,36 @@ class RadialVelocity():
         vars = np.array(vars)
         bcors = np.array(bcors)
         mjds = np.array([d.mjd for d in dates])
-        """
-        # Output and save the results
-        if not outfile is None:
-            hl = pyfits.HDUList()
-            hl.append(pyfits.ImageHDU(fluxes,header))
-            hl.append(pyfits.ImageHDU(vars))
-            hl.append(pyfits.ImageHDU(wave))
-            col1 = pyfits.Column(name='bcor', format='D', array=bcors)
-            col2 = pyfits.Column(name='mjd', format='D', array=mjds)
-            cols = pyfits.ColDefs([col1, col2])
-            hl.append(pyfits.new_table(cols))
-            hl.writeto(outfile, clobber=True)
-        """
-        return fluxes,vars,bcors,mjds, dates, #wave,
 
-    def calculate_rv_shift(self, wave_ref, ref_spect, fluxes, wave, bcors, vars):
+        return fluxes, vars, bcors, mjds
+
+    def calculate_rv_shift(self, wave_ref, ref_spect, fluxes, vars, bcors, 
+                           wave):
         """Calculates the Radial Velocity shift. 
         
         Parameters
         ----------
-        wave_ref:
-        
-        ref_spect:
-        
-        fluxes:
-        
-        wave:
-        
-        bcors:
-        
-        vars:
-        
+        wave_ref: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel*2+2), 
+            where the wavelength scale has been interpolated.
+        ref_spect: 2D np.array(float)
+            Reference spectrum of form (Order, Flux/pixel*2+2), 
+            where the flux scale has been interpolated.
+        fluxes: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)    
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation.
+        wave: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+
         Returns
         -------
-        rvs:
-        
-        rv_sigs:
-        
-        
+        rvs: 2D np.array(float)
+            Radial velocities of format (Observation, Order)
+        rv_sigs: 2D np.array(float)
+            Radial velocity sigmas of format (Observation, Order)
         """
         nm = fluxes.shape[1]
         ny = fluxes.shape[2]
@@ -381,20 +381,31 @@ class RadialVelocity():
             initp[0] = -bcors[i] 
             
             for j in range(nm):
-                #This is the *only* non-linear interpolation function that doesn't take forever
-                spline_ref = interp.InterpolatedUnivariateSpline(wave_ref[j,::-1], ref_spect[j,::-1])
-                args = (wave[j,:],fluxes[i,j,:],spect_sdev[i,j,:],spline_ref)
-                #Remove edge effects in a slightly dodgy way. 20 pixels is about 30km/s. 
+                # This is the *only* non-linear interpolation function that 
+                # doesn't take forever
+                spl_ref = interp.InterpolatedUnivariateSpline(wave_ref[j,::-1], 
+                                                              ref_spect[j,::-1])
+                args = (wave[j,:], fluxes[i,j,:], spect_sdev[i,j,:], spl_ref)
+                
+                # Remove edge effects in a slightly dodgy way. 
+                # 20 pixels is about 30km/s. 
                 args[2][:20] = np.inf
                 args[2][-20:] = np.inf
-                the_fit = op.leastsq(self.rv_shift_resid,initp,args=args, diag=[1e3,1e-6,1e-3,1],Dfun=self.rv_shift_jac,full_output=True)
+                the_fit = op.leastsq(self.rv_shift_resid, initp, args=args, 
+                                     diag=[1e3,1e-6,1e-3,1], 
+                                     Dfun=self.rv_shift_jac, full_output=True)
+                
                 #Remove bad points...
                 resid = self.rv_shift_resid( the_fit[0], *args)
                 wbad = np.where( np.abs(resid) > 7)[0]
                 args[2][wbad] = np.inf
-                the_fit = op.leastsq(self.rv_shift_resid,initp,args=args, diag=[1e3,1e-7,1e-3,1],Dfun=self.rv_shift_jac, full_output=True)
+                the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, 
+                                     diag=[1e3,1e-7,1e-3,1], 
+                                     Dfun=self.rv_shift_jac, full_output=True)
+                
                 #Some outputs for testing
-                fitted_spects[i,j] = self.rv_shift_resid(the_fit[0],*args,return_spect=True)
+                fitted_spects[i,j] = self.rv_shift_resid(the_fit[0], *args, 
+                                                         return_spect=True)
                 #Save the fit and the uncertainty.
                 rvs[i,j] = the_fit[0][0]
                 try:
@@ -405,25 +416,118 @@ class RadialVelocity():
             
         return rvs, rv_sigs
         
-    def plot_rvs(self, rvs, rv_sigs, mjds, dates, bcors, plot_title, nf, nm, ny):
-        """Plots the barycentrically corrected Radial Velocities.       
+    def save_fluxes(self, files, fluxes, vars, bcors, wave, mjds, out_path):
+        """Method to save the extracted spectra.
+        
+        TODO:
+        Might want to remove the dependence on files (to get the headers) as it
+        will prevent (or complicate) the saving of the reference spectrum.
         
         Parameters
         ----------
-        rvs:
+        fluxes: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation.
+        wave: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation.
+        out_path: String
+            The directory to save the extracted fluxes.
+        """
+        # Loop through each extracted spectrum
+        for i, file in enumerate(files):
+            # Extract the header information from the file
+            header = pyfits.getheader(file)
+            
+            file_name = file.split("\\")[-1].split(".")[0] + "_extracted.fits"
+            
+            full_path = out_path + file_name
+            
+            # Save to fits
+            hl = pyfits.HDUList()
+            hl.append(pyfits.ImageHDU(fluxes[i], header))
+            hl.append(pyfits.ImageHDU(vars[i]))
+            hl.append(pyfits.ImageHDU(wave))
+            col1 = pyfits.Column(name='bcor', format='D', 
+                                 array=np.array([bcors[i]]))
+            col2 = pyfits.Column(name='mjd', format='D', 
+                                 array=np.array([mjds[i]]))
+            cols = pyfits.ColDefs([col1, col2])
+            hl.append(pyfits.new_table(cols))
+            hl.writeto(full_path, clobber=True)
+            #hl.flush()
+    
+    def load_fluxes(self, files):
+        """Loads previously saved fluxes.
         
-        rv_sigs:
-        
-        mjds:
-        
-        bcors:
-        
-        plot_title:
-        
+        Parameters
+        ----------
+        files: [string]
+            String list of filepaths of the saved fluxes
+            
         Returns
         -------
-
+        fluxes: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation.
+        wave: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation.
         """
+        fluxes = []
+        vars = []
+        wave = []
+        bcors = []
+        mjds = []
+        
+        for f in files:
+            hl = pyfits.open(f)
+            fluxes.append(hl[0].data)
+            vars.append(hl[1].data)
+            wave = hl[2].data # Only need one (assumption of same instrument)
+            bcors.append(hl[3].data['bcor'][0])
+            mjds.append(hl[3].data['mjd'][0])
+            hl.close()
+            
+        fluxes = np.array(fluxes)
+        vars = np.array(vars)
+        #wave = np.array(hl[2].data) 
+        bcors = np.array(bcors)
+        mjds = np.array(mjds)    
+        
+        return fluxes, vars, wave, bcors, mjds
+    
+    def plot_rvs(self, rvs, rv_sigs, mjds, dates, bcors, plot_title):
+        """Plots the barycentrically corrected Radial Velocities.       
+        
+        Note:
+        Not complete.
+        
+        Parameters
+        ----------
+        rvs: 2D np.array(float)
+            Radial velocities of format (Observation, Order)
+        rv_sigs: 2D np.array(float)
+            Radial velocity sigmas of format (Observation, Order)
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation.
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation.
+        plot_title: String
+            Name of the plot
+        """
+        # Dimensions (Number of observations and orders respectively)
+        nf = rvs.shape[0]
+        nm = rvs.shape[1]
+        
         # Plot the Barycentric corrected RVs. Note that a median over all orders 
         # is only a first step - a weighted mean is needed.
         plt.clf()
@@ -447,3 +551,37 @@ class RadialVelocity():
         plt.plot_date([dates[i].plot_date for i in range(len(dates))], rv_mn)
         plt.show()
         
+    def save_rvs(self, rvs, rv_sigs, mjds, base_save_path):
+        """Method for saving calculated radial velocities and their errors to
+        csv files.
+        
+        Parameters
+        ----------
+        wave_ref: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel*2+2), 
+            where the wavelength scale has been interpolated.
+        ref_spect: 2D np.array(float)
+            Reference spectrum of form (Order, Flux/pixel*2+2), 
+            where the flux scale has been interpolated.
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation.
+        base_save_path: string
+            The base of each of the csv file paths.
+        """
+        # Dimensions (Number of observations and orders respectively)
+        nf = rvs.shape[0]
+        nm = rvs.shape[1]
+        
+        # Setup save paths
+        rv_file = base_save_path + "_rvs.csv"
+        rv_sig_file = base_save_path + "_rv_sig.csv"
+        
+        # Headers for each csv
+        rv_h = "RV in m/s for each order, for each MJD epoch"
+        rv_sig_h = "RV uncertainties in m/s for each order, for each MJD epoch"
+        
+        # Save rvs and errors
+        np.savetxt(rv_file, np.append(mjds.reshape(nf,1), rvs,axis=1), 
+                   fmt="%10.4f" + nm*", %6.1f", header=rv_h)
+        np.savetxt(rv_sig_file, np.append(mjds.reshape(nf,1),rv_sigs,axis=1), 
+                   fmt="%10.4f" + nm*", %6.1f", header=rv_sig_h)
