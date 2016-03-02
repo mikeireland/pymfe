@@ -17,7 +17,12 @@ TODO
 1) Move extract method to either extract module or rhea
 2) Try to separate calculation/processing of data from saving/loading/displaying
 3) Tidy up inputs to functions (e.g. cull unnecessary input parameters)
-4) Make save methods (e.g. Reference spectrum, fluxes, RVs and RV_sigs)
+4) Make create_ref_spect() output variances (Median Absolute Deviations)
+5) Possibly have dark calibration (for both flats and science frames) in its own
+   method. This would clean up the existing extract method, removing the need
+   to check whether darks and flats had been passed in (or varying permutations
+   of each - e.g. in the case where some of the data has already been dark 
+   corrected, such as the solar data)
 """
 
 from __future__ import division, print_function
@@ -237,11 +242,16 @@ class RadialVelocity():
         
         return wave_ref, ref_spect
 
-    def extract_spectra(self, files, star_dark, flat_files, flat_dark,  
-                        extractor, location=('151.2094','-33.865',100.0),  
+    def extract_spectra(self, files, extractor, star_dark=None, flat_files=None,   
+                        flat_dark=None, location=('151.2094','-33.865',100.0),  
                         coord=None, do_bcor=True):
         """Extract the spectrum from a file, given a dark file, a flat file and
         a dark for the flat. 
+        
+        TODO:
+        Not the neatest implementation, but should account for the fact that
+        there are no flats or darks for the ThAr frames. Might be worth tidying
+        up and making the implementation a little more elegant.
         
         Parameters
         ----------
@@ -285,9 +295,14 @@ class RadialVelocity():
         #!!! This is dodgy, as files and flat_files should go together in a dict
         for ix,file in enumerate(files):
             # Dark correct the science and flat frames
+            # Only if flat/darks have been supplied --> ThAr might not have them
+            # If not supplied, just use science/reference data
             try:
-                data = pyfits.getdata(file) - star_dark
-                flat = pyfits.getdata(flat_files[ix]) - flat_dark
+                if star_dark and flat_files and flat_dark:
+                    data = pyfits.getdata(file) - star_dark
+                    flat = pyfits.getdata(flat_files[ix]) - flat_dark
+                else:
+                    data = pyfits.getdata(file)
             except: 
                 print('Unable to calibrate file ' + file + 
                       '. Check that format of data arrays are consistent.')
@@ -314,20 +329,26 @@ class RadialVelocity():
             
             # Extract the fluxes and variance for the science and flat frames
             flux, var = extractor.one_d_extract(data=data, rnoise=20.0)
-            flat_flux, fvar = extractor.one_d_extract(data=flat,rnoise=20.0)
             
-            for j in range(flat_flux.shape[0]):
-                medf = np.median(flat_flux[j])
-                flat_flux[j] /= medf
-                fvar[j] /= medf**2
+            # Continue only when flats and darks have been supplied
+            # Perform flat field correction and adjust variances
+            if star_dark and flat_files and flat_dark:
+                flat_flux, fvar = extractor.one_d_extract(data=flat, 
+                                                          rnoise=20.0)
             
-            #Calculate the variance after dividing by the flat
-            var = var/flat_flux**2 + fvar * flux**2/flat_flux**4
-            
-            #Now normalise the flux.
-            flux /= flat_flux
+                for j in range(flat_flux.shape[0]):
+                    medf = np.median(flat_flux[j])
+                    flat_flux[j] /= medf
+                    fvar[j] /= medf**2
+                
+                #Calculate the variance after dividing by the flat
+                var = var/flat_flux**2 + fvar * flux**2/flat_flux**4
+                
+                #Now normalise the flux.
+                flux /= flat_flux
 
-            #pdb.set_trace()
+            # Regardless of whether the data has been flat field corrected, 
+            # append to the arrays and continue
             fluxes.append(flux[:,:,0])
             vars.append(var[:,:,0])
 
@@ -460,6 +481,81 @@ class RadialVelocity():
             hl.append(pyfits.new_table(cols))
             hl.writeto(full_path, clobber=True)
             #hl.flush()
+    
+    def save_ref_spect(self, files, ref_spect, vars_ref, wave_ref, bcors, mjds, 
+                       out_path):
+        """Method to save an extracted reference spectrum
+        
+        Parameters
+        ----------
+        ref_spect: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars_ref: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)
+        wave_ref: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+        bcors: 1D np.array(float)
+            Barycentric correction for each observation used to create ref_spect
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation used to create 
+            ref_spect
+        out_path: String
+            The directory to save the reference spectrum
+        """
+        header = pyfits.header.Header()
+        full_path = out_path + "reference_spectrum_" + str(len(files)) + ".fits"
+        
+        # Record which spectra were used to create the reference
+        for i, file in enumerate(files):
+            # Extract the file name of each file and store in the header
+            file_name = file.split("\\")[-1].split(".")[0] + "_extracted.fits"
+            header_name = "COMB" + str(i)
+            comment = "Combined spectrum #" + str(i)
+            header[header_name] = (file_name, comment)
+            
+        # Save to fits
+        hl = pyfits.HDUList()
+        hl.append(pyfits.ImageHDU(ref_spect, header))
+        hl.append(pyfits.ImageHDU(vars_ref[0]))
+        hl.append(pyfits.ImageHDU(wave_ref))
+        col1 = pyfits.Column(name='bcor', format='D', array=np.array([bcors[0]]))
+        col2 = pyfits.Column(name='mjd', format='D', 
+                             array=np.array([mjds[0]]))
+        cols = pyfits.ColDefs([col1, col2])
+        hl.append(pyfits.new_table(cols))
+        hl.writeto(full_path, clobber=True)
+    
+    def load_ref_spect(self, path):
+        """Method to load a previously saved reference spectrum
+        
+        Parameters
+        ----------
+        path: string
+            The file path to the saved reference spectrum.
+            
+        Returns
+        -------
+        ref_spect: 3D np.array(float)
+            Fluxes of form (Observation, Order, Flux/pixel)
+        vars_ref: 3D np.array(float)
+            Variance of form (Observation, Order, Variance/pixel)
+        wave_ref: 2D np.array(float)
+            Wavelength coordinate map of form (Order, Wavelength/pixel)
+        bcors_ref: 1D np.array(float)
+            Barycentric correction for each observation used to create ref_spect
+        mjds_ref: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation used to create 
+            ref_spect
+        """
+        hl = pyfits.open(path)
+        ref_spect = hl[0].data
+        vars_ref = hl[1].data
+        wave_ref = hl[2].data
+        bcors_ref = hl[3].data['bcor'][0]
+        mjds_ref = hl[3].data['mjd'][0]
+        hl.close()
+        
+        return ref_spect, vars_ref, wave_ref, bcors_ref, mjds_ref
     
     def load_fluxes(self, files):
         """Loads previously saved fluxes.
