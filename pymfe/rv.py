@@ -298,14 +298,22 @@ class RadialVelocity():
             # Only if flat/darks have been supplied --> ThAr might not have them
             # If not supplied, just use science/reference data
             try:
-                if star_dark and flat_files and flat_dark:
+                # Dark correct science frames
+                if len(star_dark) > 0: 
                     data = pyfits.getdata(file) - star_dark
-                    flat = pyfits.getdata(flat_files[ix]) - flat_dark
                 else:
-                    data = pyfits.getdata(file)
+                    data = pyfits.getdata(file)  
+                # Dark correct flats    
+                if len(flat_files) > 0 and len(flat_dark) > 0:    
+                    flat = pyfits.getdata(flat_files[ix]) - flat_dark
+                elif len(flat_files) > 0:
+                    flat = pyfits.getdata(flat_files[ix])
+
             except: 
                 print('Unable to calibrate file ' + file + 
                       '. Check that format of data arrays are consistent.')
+                print(pyfits.getdata(file).shape)
+                print(star_dark.shape)
                 continue            
             header = pyfits.getheader(file)
             
@@ -330,9 +338,9 @@ class RadialVelocity():
             # Extract the fluxes and variance for the science and flat frames
             flux, var = extractor.one_d_extract(data=data, rnoise=20.0)
             
-            # Continue only when flats and darks have been supplied
+            # Continue only when flats have been supplied
             # Perform flat field correction and adjust variances
-            if star_dark and flat_files and flat_dark:
+            if len(flat_files) > 0:
                 flat_flux, fvar = extractor.one_d_extract(data=flat, 
                                                           rnoise=20.0)
             
@@ -461,26 +469,31 @@ class RadialVelocity():
         """
         # Loop through each extracted spectrum
         for i, file in enumerate(files):
-            # Extract the header information from the file
-            header = pyfits.getheader(file)
-            
-            file_name = file.split("\\")[-1].split(".")[0] + "_extracted.fits"
-            
-            full_path = out_path + file_name
-            
-            # Save to fits
-            hl = pyfits.HDUList()
-            hl.append(pyfits.ImageHDU(fluxes[i], header))
-            hl.append(pyfits.ImageHDU(vars[i]))
-            hl.append(pyfits.ImageHDU(wave))
-            col1 = pyfits.Column(name='bcor', format='D', 
-                                 array=np.array([bcors[i]]))
-            col2 = pyfits.Column(name='mjd', format='D', 
-                                 array=np.array([mjds[i]]))
-            cols = pyfits.ColDefs([col1, col2])
-            hl.append(pyfits.new_table(cols))
-            hl.writeto(full_path, clobber=True)
-            #hl.flush()
+            try:
+                # Extract the header information from the file
+                header = pyfits.getheader(file)
+                
+                file_name = file.split("\\")[-1].split(".")[0] + \
+                            "_extracted.fits"
+                
+                full_path = out_path + file_name
+                
+                # Save to fits
+                hl = pyfits.HDUList()
+                hl.append(pyfits.ImageHDU(fluxes[i], header))
+                hl.append(pyfits.ImageHDU(vars[i]))
+                hl.append(pyfits.ImageHDU(wave))
+                col1 = pyfits.Column(name='bcor', format='D', 
+                                     array=np.array([bcors[i]]))
+                col2 = pyfits.Column(name='mjd', format='D', 
+                                     array=np.array([mjds[i]]))
+                cols = pyfits.ColDefs([col1, col2])
+                hl.append(pyfits.new_table(cols))
+                hl.writeto(full_path, clobber=True)
+            except:
+                print("Error: Some files may not have been saved.")
+                print("Likely due to incompatible array sizes for frames.")
+                continue
     
     def save_ref_spect(self, files, ref_spect, vars_ref, wave_ref, bcors, mjds, 
                        out_path):
@@ -503,7 +516,9 @@ class RadialVelocity():
             The directory to save the reference spectrum
         """
         header = pyfits.header.Header()
-        full_path = out_path + "reference_spectrum_" + str(len(files)) + ".fits"
+        star = files[0].split("\\")[-1].split("_")[1]
+        n = str(len(files))
+        full_path = out_path + "reference_spectrum_" + n + star + ".fits"
         
         # Record which spectra were used to create the reference
         for i, file in enumerate(files):
@@ -669,8 +684,8 @@ class RadialVelocity():
         nm = rvs.shape[1]
         
         # Setup save paths
-        rv_file = base_save_path + "_rvs.csv"
-        rv_sig_file = base_save_path + "_rv_sig.csv"
+        rv_file = base_save_path + "_" + str(rvs.shape[0]) + "_rvs.csv"
+        rv_sig_file = base_save_path + "_" + str(rvs.shape[0]) + "_rv_sig.csv"
         
         # Headers for each csv
         rv_h = "RV in m/s for each order, for each MJD epoch"
