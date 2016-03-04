@@ -516,14 +516,14 @@ class RadialVelocity():
             The directory to save the reference spectrum
         """
         header = pyfits.header.Header()
-        star = files[0].split("\\")[-1].split("_")[1]
+        star = files[0].split("/")[-1].split("_")[1]
         n = str(len(files))
         full_path = out_path + "reference_spectrum_" + n + star + ".fits"
         
         # Record which spectra were used to create the reference
         for i, file in enumerate(files):
             # Extract the file name of each file and store in the header
-            file_name = file.split("\\")[-1].split(".")[0] + "_extracted.fits"
+            file_name = file.split("/")[-1].split(".")[0] + "_extracted.fits"
             header_name = "COMB" + str(i)
             comment = "Combined spectrum #" + str(i)
             header[header_name] = (file_name, comment)

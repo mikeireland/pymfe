@@ -40,16 +40,21 @@ rv = pymfe.rv.RadialVelocity()
 star = "gammaCrucis"
 #star = "tauCeti"
 #star = "thar"
-base_path = "D:\\rhea_data\\gammaCrucis\\"
-files = glob.glob(base_path + "2015*\\*" + star + "*[0123456789].fit*")
+#base_path = "D:\\rhea_data\\gammaCrucis\\"
+base_path = "/priv/mulga1/jbento/rhea2_data/gammaCrucis/"
+#files = glob.glob(base_path + "2015*\\*" + star + "*[0123456789].fit*")
+files = []
+subdirs = ['20150601','20150602','20150603','20150604']
+for subdir in subdirs:
+    files.extend(glob.glob(base_path + subdir + "/*" + star + "*[0123456789].fit*"))
 
 # Flats and Darks
 # Note: Masterdark_target.fit copied from "\20150628\spectra_paper\"
-star_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_target.fit")
-flat_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_flat.fit")
+#star_dark = pyfits.getdata(base_path + "Dark frames/Masterdark_target.fit")
+flat_dark = pyfits.getdata(base_path + "Dark frames/Masterdark_flat.fit")
 
-file_dirs = [f[f.rfind("\\")-8:f.rfind("\\")] for f in files]
-flat_files = [base_path + f + "\\" + f + "_Masterflat.fit" for f in file_dirs]
+file_dirs = [f[f.rfind("/")-8:f.rfind("/")] for f in files]
+flat_files = [base_path + f + "/" + f + "_Masterflat.fit" for f in file_dirs]
 
 # Set to len(0) arrays when extracting ThAr
 #star_dark = np.empty(0)
@@ -57,12 +62,17 @@ flat_files = [base_path + f + "\\" + f + "_Masterflat.fit" for f in file_dirs]
 #flat_files = np.empty(0)
 
 # Extracted spectra output
-out_path = "D:\\rhea_data\\Extracted\\"
+out_path = "/priv/mulga1/arains/Gacrux_Extracted/"
 extracted_files = glob.glob(out_path + "2015*" + star + 
                             "*[0123456789]_extracted.fits")
+extracted_files = []
+subdirs = ['20150601','20150602','20150603','20150604']
+for subdir in subdirs:
+    extracted_files.extend(glob.glob(out_path + subdir + "*" + star + "*_extracted.fit*"))
+
 
 # Saved reference spectrum
-ref_path = out_path + "reference_spectrum_74gammaCrucis.fits"                            
+ref_path = out_path + "reference_spectrum_miketest.fits"                            
                             
 # RV csv output
 base_rv_path = out_path + star
@@ -82,22 +92,22 @@ print len(files), len(flat_files)
 #rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
 
 # OPTION 2: Load previously extracted spectra
-#fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
+fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
 
 #===============================================================================
 # Create and save/import reference spectrum
 #===============================================================================                                                     
 # Only use subsection
-fluxes = fluxes[:43,:,:]
-vars = vars[:43,:,:]
-bcors = bcors[:43]
-mjds = mjds[:43]
+#fluxes = fluxes[:43,:,:]
+#vars = vars[:43,:,:]
+#bcors = bcors[:43]
+#mjds = mjds[:43]
  
 # OPTION 1: Create and save a new reference spectrum
-wave_ref, ref_spect = rv.create_ref_spect(wave, fluxes[:10,:,:], vars[:10,:,:], bcors[:10], 
-                                          med_cut=med_cut)
+wave_ref, ref_spect = rv.create_ref_spect(wave, fluxes, vars, bcors, 
+                                          med_cut=med_cut,gauss_hw=2)
 
-rv.save_ref_spect(files[:10], ref_spect, vars[:10,:,:], wave_ref, bcors[:10], mjds[:10], out_path)                                          
+rv.save_ref_spect(files, ref_spect, vars, wave_ref, bcors, mjds, out_path)                                          
                                        
 # OPTION 2: Import a pre-existing reference spectrum                                          
 #ref_spect, vars_ref, wave_ref, bcors_ref, mjds_ref = rv.load_ref_spect(ref_path)
