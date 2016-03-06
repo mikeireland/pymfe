@@ -469,31 +469,30 @@ class RadialVelocity():
         """
         # Loop through each extracted spectrum
         for i, file in enumerate(files):
-            try:
+            #try:
                 # Extract the header information from the file
-                header = pyfits.getheader(file)
-                
-                file_name = file.split("\\")[-1].split(".")[0] + \
-                            "_extracted.fits"
-                
-                full_path = out_path + file_name
-                
-                # Save to fits
-                hl = pyfits.HDUList()
-                hl.append(pyfits.ImageHDU(fluxes[i], header))
-                hl.append(pyfits.ImageHDU(vars[i]))
-                hl.append(pyfits.ImageHDU(wave))
-                col1 = pyfits.Column(name='bcor', format='D', 
-                                     array=np.array([bcors[i]]))
-                col2 = pyfits.Column(name='mjd', format='D', 
-                                     array=np.array([mjds[i]]))
-                cols = pyfits.ColDefs([col1, col2])
-                hl.append(pyfits.new_table(cols))
-                hl.writeto(full_path, clobber=True)
-            except:
-                print("Error: Some files may not have been saved.")
-                print("Likely due to incompatible array sizes for frames.")
-                continue
+            header = pyfits.getheader(file)
+            
+            file_name = file.split("/")[-1].split(".")[0] + "_extracted.fits"
+            
+            full_path = out_path + file_name
+            
+            # Save to fits
+            hl = pyfits.HDUList()
+            hl.append(pyfits.ImageHDU(fluxes[i], header))
+            hl.append(pyfits.ImageHDU(vars[i]))
+            hl.append(pyfits.ImageHDU(wave))
+            col1 = pyfits.Column(name='bcor', format='D', 
+                                 array=np.array([bcors[i]]))
+            col2 = pyfits.Column(name='mjd', format='D', 
+                                 array=np.array([mjds[i]]))
+            cols = pyfits.ColDefs([col1, col2])
+            hl.append(pyfits.new_table(cols))
+            hl.writeto(full_path, clobber=True)
+            #except:
+                #print("Error: Some files may not have been saved.")
+                #print("Likely due to incompatible array sizes for frames.")
+                #continue
     
     def save_ref_spect(self, files, ref_spect, vars_ref, wave_ref, bcors, mjds, 
                        out_path):
