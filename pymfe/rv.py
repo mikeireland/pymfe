@@ -661,7 +661,7 @@ class RadialVelocity():
         plt.plot_date([dates[i].plot_date for i in range(len(dates))], rv_mn)
         plt.show()
         
-    def save_rvs(self, rvs, rv_sigs, mjds, base_save_path):
+    def save_rvs(self, rvs, rv_sigs, bcor, mjds, base_save_path):
         """Method for saving calculated radial velocities and their errors to
         csv files.
         
@@ -685,13 +685,17 @@ class RadialVelocity():
         # Setup save paths
         rv_file = base_save_path + "_" + str(rvs.shape[0]) + "_rvs.csv"
         rv_sig_file = base_save_path + "_" + str(rvs.shape[0]) + "_rv_sig.csv"
+        bcor_file = base_save_path + "_" + str(rvs.shape[0]) + "_rv_bcor.csv"
         
         # Headers for each csv
         rv_h = "RV in m/s for each order, for each MJD epoch"
         rv_sig_h = "RV uncertainties in m/s for each order, for each MJD epoch"
+        bcor_h = "Barycentric correction in m/s"
         
         # Save rvs and errors
         np.savetxt(rv_file, np.append(mjds.reshape(nf,1), rvs,axis=1), 
                    fmt="%10.4f" + nm*", %6.1f", header=rv_h)
         np.savetxt(rv_sig_file, np.append(mjds.reshape(nf,1),rv_sigs,axis=1), 
                    fmt="%10.4f" + nm*", %6.1f", header=rv_sig_h)
+        np.savetxt(bcor_file, np.append(mjds.reshape(nf,1),bcor,axis=1), 
+                   fmt="%10.4f" + nm*", %6.1f", header=bcor_h)          
