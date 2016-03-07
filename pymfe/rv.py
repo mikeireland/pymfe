@@ -697,5 +697,5 @@ class RadialVelocity():
                    fmt="%10.4f" + nm*", %6.1f", header=rv_h)
         np.savetxt(rv_sig_file, np.append(mjds.reshape(nf,1),rv_sigs,axis=1), 
                    fmt="%10.4f" + nm*", %6.1f", header=rv_sig_h)
-        np.savetxt(bcor_file, np.append(mjds.reshape(nf,1),bcor,axis=1), 
+        np.savetxt(bcor_file, np.append(mjds.reshape(nf,1),bcor.reshape(nf,1),axis=1), 
                    fmt="%10.4f" + nm*", %6.1f", header=bcor_h)          
