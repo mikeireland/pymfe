@@ -3,7 +3,7 @@
 Steps
 1) Initialise Format, Extractor and RadialVelocity
 2) Define file paths for science, flat and dark frames
-3) Extract spectra
+3) Extract/import spectra
 4) Create/import reference spectra
 5) Calculate radial velocities
 6) Plot radial velocities
@@ -17,60 +17,110 @@ import pymfe
 import glob
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-
     
 #===============================================================================
-# Parameters/Constants/Variables
+# Parameters/Constants/Variables/Initialisation 
 #===============================================================================
+# Constants/Variables
 do_bcor = True
 med_cut = 0.6
-plot_title = "nuOphiuchi"
+plot_title = "gammaCrucis"
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
-#===============================================================================
-# Observations, Flats and Darks
-#===============================================================================
-base_path = "D:\\TestData\\"
-
-save_file = "gammaCrucis_save.fits"
-
-star = "gammaCrucis"
-files = glob.glob(base_path + "2015*\\*" + star + "*[0123456789].fit")
-
-# Note: Masterdark_target.fit copied from "\20150628\spectra_paper\"
-star_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_target.fit")
-flat_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_flat.fit")
-
-file_dirs = [f[f.rfind("\\")-8:f.rfind("\\")] for f in files]
-flat_files = [base_path + f + "\\" + f + "_Masterflat.fit" for f in file_dirs]
-
-
-#===============================================================================
-# Spectra extraction, calculation of RVs and plotting
-#===============================================================================
 # Initialise objects
 rhea2_format = pymfe.rhea.Format()
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=False)
 xx, wave, blaze = rhea2_format.spectral_format()
 rv = pymfe.rv.RadialVelocity()
 
+#===============================================================================
+# File paths (Observations, Flats and Darks, save/load directories) 
+#===============================================================================
+# Science Frames
+star = "gammaCrucis"
+#star = "tauCeti"
+#star = "thar"
+#base_path = "D:\\rhea_data\\gammaCrucis\\"
+base_path = "/priv/mulga1/jbento/rhea2_data/gammaCrucis/"
+#files = glob.glob(base_path + "2015*\\*" + star + "*[0123456789].fit*")
+files = []
+subdirs = ['20150601','20150602','20150603','20150604']
+for subdir in subdirs:
+    files.extend(glob.glob(base_path + subdir + "/*" + star + "*[0123456789].fit*"))
+
+# Flats and Darks
+# Note: Masterdark_target.fit copied from "\20150628\spectra_paper\"
+#star_dark = pyfits.getdata(base_path + "Dark frames/Masterdark_target.fit")
+flat_dark = pyfits.getdata(base_path + "Dark frames/Masterdark_flat.fit")
+
+file_dirs = [f[f.rfind("/")-8:f.rfind("/")] for f in files]
+flat_files = [base_path + f + "/" + f + "_Masterflat.fit" for f in file_dirs]
+
+# Set to len(0) arrays when extracting ThAr
+#star_dark = np.empty(0)
+#flat_dark = np.empty(0)
+#flat_files = np.empty(0)
+
+# Extracted spectra output
+out_path = "/priv/mulga1/arains/Gacrux_Extracted/"
+extracted_files = glob.glob(out_path + "2015*" + star + 
+                            "*[0123456789]_extracted.fits")
+extracted_files = []
+subdirs = ['20150601','20150602','20150603','20150604']
+for subdir in subdirs:
+    extracted_files.extend(glob.glob(out_path + subdir + "*" + star + "*_extracted.fit*"))
+
+
+# Saved reference spectrum
+ref_path = out_path + "reference_spectrum_miketest.fits"                            
+                            
+# RV csv output
+base_rv_path = out_path + star
+print len(files), len(flat_files)
+#===============================================================================
+# Extract and save spectra/load previously extracted spectra
+#===============================================================================
 # Extract spectra ("wave" removed)
-fluxes, vars, bcors, mjds, dates = rv.extract_spectra(files, star_dark,  
-                                                     flat_files, flat_dark, 
-                                                     rhea2_extract, coord=coord,
-                                                     outfile=save_file, 
-                                                     do_bcor=do_bcor)
-                                                  
-# Create reference spectrum
+# OPTION 1: Extract and save spectra
+#fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
+#                                               star_dark=star_dark, 
+#                                               flat_files=flat_files,
+#                                               flat_dark=flat_dark, 
+#                                              coord=coord, do_bcor=do_bcor)
+                                                     
+# Save spectra (Make sure to save "wave" generated from rhea2_format)
+#rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
+
+# OPTION 2: Load previously extracted spectra
+fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
+
+#===============================================================================
+# Create and save/import reference spectrum
+#===============================================================================                                                     
+# Only use subsection
+#fluxes = fluxes[:43,:,:]
+#vars = vars[:43,:,:]
+#bcors = bcors[:43]
+#mjds = mjds[:43]
+ 
+# OPTION 1: Create and save a new reference spectrum
 wave_ref, ref_spect = rv.create_ref_spect(wave, fluxes, vars, bcors, 
-                                          med_cut=med_cut)
+                                          med_cut=med_cut,gauss_hw=2)
 
+rv.save_ref_spect(files, ref_spect, vars, wave_ref, bcors, mjds, out_path)                                          
+                                       
+# OPTION 2: Import a pre-existing reference spectrum                                          
+#ref_spect, vars_ref, wave_ref, bcors_ref, mjds_ref = rv.load_ref_spect(ref_path)
+
+#===============================================================================
+# Calculate, save and plot radial velocities
+#===============================================================================                                          
 # Calculate RVs
-rvs, rv_sigs = rv.calculate_rv_shift(wave_ref, ref_spect, fluxes, wave, bcors, 
-                                     vars)  
-                                           
+rvs, rv_sigs = rv.calculate_rv_shift(wave_ref, ref_spect, fluxes, vars, bcors, 
+                                     wave)  
 
+# Save RVs
+rv.save_rvs(rvs, rv_sigs, mjds, base_rv_path)
+                                     
 # Plot RVs
-rv.plot_rvs(rvs, rv_sigs, mjds, dates, bcors, plot_title, fluxes.shape[0], 
-            fluxes.shape[1],
-            fluxes.shape[2])              
+#rv.plot_rvs(rvs, rv_sigs, mjds, dates, bcors, plot_title)              
