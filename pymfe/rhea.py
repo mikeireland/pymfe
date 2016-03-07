@@ -48,8 +48,8 @@ class Format():
             self.szy = 2750
             self.szx = 2200
             self.xbin = 1
-            self.m_min = 72#68
-            self.m_max = 95
+            self.m_min = 68
+            self.m_max = 96
             self.m_ref = 82
             self.extra_rot = 1.0
             self.transpose = True
@@ -59,14 +59,19 @@ class Format():
         self.rnoise = 20.0
         ## Some slit parameters...
         self.mode       = mode
-        self.nl         = 1
-        self.im_slit_sz = 64            #Number of pixels for a simulated slit image
+        if (mode=="single"):
+            self.nl         = 1
+            self.im_slit_sz = 64            #Number of pixels for a simulated slit image
+        elif (mode=="slit"):
+            self.nl=10
+            self.im_slit_sz = 600 #Need 250/10*11*2 on each side! Crazy.
         self.microns_pix = 10.0      #Microns per pixel in the simulated image
         self.lenslet_width=250.0        #Width of a single lenslet in microns
-        self.fib_image_width_in_pix = 4.0
-        self.fluxes = np.ones( (1,1) )  #Default fluxes for simulated data
-        ## And, critically, the slit-to-pixel scaling
-        self.slit_microns_per_det_pix = 62.5 # WAS 62.5
+        self.fib_image_width_in_pix = 3.5
+        self.fluxes = np.eye( self.nl )  
+        ## And, critically, the slit-to-pixel scaling for the first and last order.
+        self.slit_microns_per_det_pix_first = 71.0 # WAS 62.5, based on optical diagram.
+        self.slit_microns_per_det_pix_last = 65.0 # WAS 62.5, based on optical diagram.
         
     def wave_fit_resid(self, params, ms, waves, ys, ydeg=3, xdeg=3):
         """A fit function for read_lines_and_fit (see that function for details), to be 
@@ -93,7 +98,7 @@ class Format():
             wave_mod[i] = polyp(ys[i]-self.szy/2)
         return wave_mod - waves
         
-    def read_lines_and_fit(self, init_mod_file='', pixdir='',outdir='./', ydeg=3, xdeg=3):
+    def read_lines_and_fit(self, init_mod_file='', pixdir='',outdir='./', ydeg=3, xdeg=3, residfile='resid.txt'):
         """Read in a series of text files that have a (Wavelength, pixel) format and file names
         like order99.txt and order100.txt. Fit an nth order polynomial to the wavelength
         as a function of pixel value.
@@ -148,6 +153,9 @@ class Format():
         init_resid = self.wave_fit_resid(params0, ms, waves, ys,ydeg=ydeg,xdeg=xdeg)
         bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, waves, ys,ydeg,xdeg))
         final_resid = self.wave_fit_resid(bestp[0], ms, waves, ys,ydeg=ydeg,xdeg=xdeg)
+        #Output the fit residuals.
+        wave_and_resid = np.array([waves,ms,final_resid]).T
+        np.savetxt(outdir + residfile,wave_and_resid, fmt='%9.4f %d %7.4f')
         print("Fit residual RMS (Angstroms): {0:6.3f}".format(np.std(final_resid)))
         params = bestp[0].reshape( (ydeg+1,xdeg+1) )
         outf = open(outdir + "wavemod.txt","w")
@@ -171,14 +179,21 @@ class Format():
         
         llet_offset: int
             Offset in lenslets to apply to the input spectrum"""
-        if (self.mode == "single"):
-            ## In this case, we obviously ignore the fluxes!
-            x = (np.arange(self.im_slit_sz) - self.im_slit_sz/2)*self.microns_pix
-            xy = np.meshgrid(x,x)
-            ## A simple Gaussian approximation to the fiber far field (or near-field in the
-            ## case of the original RHEA2. 2.35482 scales FWHM to stdev
-            gsig = self.fib_image_width_in_pix*self.slit_microns_per_det_pix/2.35482
-            sim_im = np.exp( - xy[0]**2/2.0/(gsig/self.xbin)**2 - xy[1]**2/2.0/gsig**2  )
+        ## In this case, we obviously ignore the fluxes!
+        x = (np.arange(self.im_slit_sz) - self.im_slit_sz/2)*self.microns_pix
+        xy = np.meshgrid(x,x)
+        ## A simple Gaussian approximation to the fiber far field (or near-field in the
+        ## case of the original RHEA2. 2.35482 scales FWHM to stdev
+        slit_microns_per_det_pix = 0.5*(self.slit_microns_per_det_pix_first + self.slit_microns_per_det_pix_last)
+        gsig = self.fib_image_width_in_pix*slit_microns_per_det_pix/2.35482
+        sim_im0 = np.exp( - xy[0]**2/2.0/(gsig/self.xbin)**2 - xy[1]**2/2.0/gsig**2  )
+        sim_im = sim_im0.copy()
+        if (self.mode == "slit"):
+            #If fluxes isn't given, use the default
+            if len(fluxes) != 0:
+                sim_im *= fluxes[0]
+                for i in range(1,len(fluxes)):
+                    sim_im += fluxes[i]*np.roll(sim_im0,int((i+1)*self.lenslet_width/self.microns_pix),axis=1)
         else:
             print("Error: invalid mode " + self.mode)
             raise UserWarning
@@ -409,13 +424,15 @@ class Format():
         matrices = np.zeros( (x.shape[0],x.shape[1],2,2) )
         amat = np.zeros((2,2))
 
-        for i in range(x.shape[0]):
+        for i in range(x.shape[0]): #i is the order
             for j in range(x.shape[1]):
                 ## Create a matrix where we map input angles to output coordinates.
-                amat[0,0] = 1.0/self.slit_microns_per_det_pix
+                slit_microns_per_det_pix = self.slit_microns_per_det_pix_first + \
+                    float(i)/x.shape[0]*(self.slit_microns_per_det_pix_last - self.slit_microns_per_det_pix_first)
+                amat[0,0] = 1.0/slit_microns_per_det_pix
                 amat[0,1] = 0
                 amat[1,0] = 0
-                amat[1,1] = 1.0/self.slit_microns_per_det_pix
+                amat[1,1] = 1.0/slit_microns_per_det_pix
                 ## Apply an additional rotation matrix. If the simulation was complete,
                 ## this wouldn't be required.
                 r_rad = np.radians(self.extra_rot)

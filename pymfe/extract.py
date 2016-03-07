@@ -21,6 +21,7 @@ except:
     import astropy.io.fits as pyfits
 import pdb
 from astropy.modeling import models, fitting
+import matplotlib.cm as cm
 
 class Extractor():
     """A class for each arm of the spectrograph. The initialisation function takes a 
@@ -61,6 +62,7 @@ class Extractor():
         for i in range(sim.nl):
             self.square_offsets[:,i] = (pix_offset_ix - sim.nl/2.0) * sim.lenslet_width / self.matrices[i,self.x_map.shape[1]//2,0,0]
         self.sim_offsets = np.empty( (self.sim.im_slit_sz,nm) )
+        #Creat an array of slit positions in microns. !!! Add an optional offset to this, i.e. a 1D offset !!!
         im_slit_pix_in_microns = (np.arange(self.sim.im_slit_sz) - self.sim.im_slit_sz/2.0) * self.sim.microns_pix
         for i in range(nm):
             self.sim_offsets[:,i] = im_slit_pix_in_microns / self.matrices[i,self.x_map.shape[1]//2,0,0]
@@ -191,6 +193,11 @@ class Extractor():
                 pixel_weights = np.dot(b_mat,np.linalg.inv(c_mat))
                 extracted_flux[i,j,:] = np.dot(col_data,pixel_weights)
                 extracted_var[i,j,:] = np.dot(1.0/np.maximum(col_inv_var,1e-12),pixel_weights**2)
+                #if ((i % 5)==1) & (j==ny//2):
+                #if (i%5==1) & (j==ny//2):
+                #if (j==ny//2):
+                #    pdb.set_trace()
+                    
         return extracted_flux, extracted_var
         
     def two_d_extract(self, file='', data=[], badpix=[], lenslet_profile='sim', rnoise=3.0, deconvolve=True):
@@ -387,7 +394,7 @@ class Extractor():
             return extracted_flux, extracted_var
         
         
-    def find_lines(self,data,arcfile='lines.txt',outfile='arclines.txt', hw=20):
+    def find_lines(self,data,arcfile='lines.txt',outfile='arclines.txt', hw=10,flat_data=[]):
         """Find lines near the locations of input arc lines.
         
         Parameters
@@ -408,22 +415,34 @@ class Extractor():
         nm = self.x_map.shape[0]
         nx = self.sim.szx
         lines_out=[]
-        for m in range(nm):
-            w_ix = np.interp(lines,self.w_map[m,:],np.arange(ny))
+        if len(flat_data)>0:
+            data_to_show = data - 0.05*flat_data
+        else:
+            data_to_show = data.copy()
+        plt.clf()
+        plt.imshow( np.arcsinh( (data_to_show-np.median(data_to_show))/1e2) , interpolation='nearest', aspect='auto', cmap=cm.gray)
+        for m_ix in range(nm):
+            w_ix = np.interp(lines,self.w_map[m_ix,:],np.arange(ny))
             ww = np.where( (w_ix >= hw) & (w_ix < ny-hw) )[0]
             w_ix = w_ix[ww]
             arclines_to_fit = lines[ww]
             for i,ix in enumerate(w_ix):
                 x = np.arange(ix-hw,ix+hw,dtype=np.int)
-                y = flux[m,x]
+                y = flux[m_ix,x]
                 y -= np.min(y) #Rough...
-                if np.max(y)< 20*self.sim.rnoise:
+                if np.max(y)< 25*self.sim.rnoise:
                     continue
                 g_init = models.Gaussian1D(amplitude=np.max(y), mean=x[np.argmax(y)], stddev=1.5)
                 fit_g = fitting.LevMarLSQFitter()
                 g = fit_g(g_init, x, y)
                 #Wave, ypos, xpos, m, amplitude, fwhm
-                lines_out.append( [arclines_to_fit[i],g.mean.value,nx//2+np.interp(g.mean.value,np.arange(ny),self.x_map[m]),m,g.amplitude.value, g.stddev.value*2.3548] )
+                xpos = nx//2+np.interp(g.mean.value,np.arange(ny),self.x_map[m_ix])
+                ypos = g.mean.value
+                plt.plot(xpos,ix,'bx')
+                plt.plot(xpos,ypos,'rx') #!!! Maybe around the other way?
+                plt.text(xpos+10,ypos,str(arclines_to_fit[i]),color='green',fontsize=10)
+                lines_out.append( [arclines_to_fit[i],ypos,xpos,m_ix+self.sim.m_min,g.amplitude.value, g.stddev.value*2.3548] )
+        plt.axis([0,nx,ny,0])
         lines_out = np.array(lines_out)
         np.savetxt(outfile,lines_out,fmt='%9.4f %7.2f %7.2f %2d %7.1e %4.1f')
         

@@ -445,7 +445,7 @@ class Arm():
             """
             #If no input spectrum, use the sun.
             if len(spectrum)==0:
-                d =pyfits.getdata(os.path.join(os.path.dirname(os.path.abspath(__file__)),'data/ardata.fits.gz'))
+                d =pyfits.getdata(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/ardata.fits.gz'))
                 spectrum=np.array([np.append(0.35,d['WAVELENGTH'])/1e4,np.append(0.1,d['SOLARFLUX'])])
             nm = x.shape[0]
             ny = x.shape[1]
@@ -536,7 +536,7 @@ class Arm():
             if (use_thar):
                 #Create an appropriately convolved Thorium-Argon spectrum after appropriately
                 #convolving.
-                thar = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'data/mnras0378-0221-SD1.txt'),usecols=[0,1,2])
+                thar = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/mnras0378-0221-SD1.txt'),usecols=[0,1,2])
                 thar_wave = 3600 * np.exp(np.arange(5e5)/5e5)
                 thar_flux = np.zeros(5e5)
                 ix = (np.log(thar[:,1]/3600)*5e5).astype(int)
