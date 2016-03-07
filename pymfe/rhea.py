@@ -194,7 +194,7 @@ class Format():
                 sim_im *= fluxes[0]
                 for i in range(1,len(fluxes)):
                     sim_im += fluxes[i]*np.roll(sim_im0,int((i+1)*self.lenslet_width/self.microns_pix),axis=1)
-        else:
+        elif (self.mode != "single"):
             print("Error: invalid mode " + self.mode)
             raise UserWarning
         return sim_im
