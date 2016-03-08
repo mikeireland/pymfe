@@ -495,7 +495,7 @@ class RadialVelocity():
                 #continue
     
     def save_ref_spect(self, files, ref_spect, vars_ref, wave_ref, bcors, mjds, 
-                       out_path):
+                       out_path, object):
         """Method to save an extracted reference spectrum
         
         Parameters
@@ -513,11 +513,12 @@ class RadialVelocity():
             ref_spect
         out_path: String
             The directory to save the reference spectrum
+        object: String
+            The object object observed.
         """
         header = pyfits.header.Header()
-        star = files[0].split("/")[-1].split("_")[1]
         n = str(len(files))
-        full_path = out_path + "reference_spectrum_" + n + star + ".fits"
+        full_path = out_path + "reference_spectrum_" + n + "_" + object +".fits"
         
         # Record which spectra were used to create the reference
         for i, file in enumerate(files):
