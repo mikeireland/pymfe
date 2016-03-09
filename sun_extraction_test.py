@@ -39,6 +39,7 @@ rv = pymfe.rv.RadialVelocity()
 
 #Q-factor test showed that with 10 orders, we should be getting 4m/s rms per frame
 # 3e8/5e3/np.sqrt(4e4*0.3*2000*10)
+# c/(Q*sqrt(Ncounts*ccdgain*npix_per_order*norders)
 #dd = pyfits.getdata(files[0])
 #plt.imshow(dd.T, aspect='auto',cmap=cm.gray,interpolation='nearest')
 #plt.plot(xx.T + dd.shape[1]/2)
