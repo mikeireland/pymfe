@@ -141,7 +141,7 @@ class RadialVelocity():
         return jac
 
     def create_ref_spect(self, wave, fluxes, vars, bcors, rebin_fact=2, 
-                         gauss_sdev=1.0, med_cut=0.6,gauss_hw=2):
+                         gauss_sdev=1.0, med_cut=0.6,gauss_hw=7):
         """Create a reference spectrum from a series of target spectra, after 
         correcting the spectra barycentrically. 
         

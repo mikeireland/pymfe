@@ -44,9 +44,10 @@ class Extractor():
     lenslet_width, im_slit_sz, microns_pix (together define the make_lenslets output)
     """
     
-    def __init__(self,sim,transpose_data=True):
+    def __init__(self,sim,transpose_data=True,badpixmask=[]):
         self.sim = sim
         self.transpose_data=transpose_data
+        self.badpixmask = badpixmask
         self.x_map,self.w_map,self.blaze,self.matrices = self.sim.spectral_format_with_matrix()
         #Fill in the slit dimensions in "simulator pixel"s. based on if we are in the 
         #high or standard resolution mode.
@@ -92,7 +93,7 @@ class Extractor():
                 im_slit=self.sim.make_lenslets(fluxes=fluxes[:,i])
                 self.sim_profile[:,i] = np.sum(im_slit, axis=0)
         
-    def one_d_extract(self, data=[], file='', badpix=[], lenslet_profile='sim', rnoise=3.0):
+    def one_d_extract(self, data=[], file='', lenslet_profile='sim', rnoise=3.0):
         """ Extract flux by integrating down columns (the "y" direction), using an
         optimal extraction method.
         
@@ -145,7 +146,7 @@ class Extractor():
         #Assuming that the data are in photo-electrons, construct a simple model for the
         #pixel inverse variance.
         pixel_inv_var = 1.0/(np.maximum(data,0) + rnoise**2)
-        pixel_inv_var[badpix]=0.0
+        pixel_inv_var[self.badpixmask]=0.0
                 
         #Loop through all orders then through all y pixels.
         for i in range(nm):
@@ -200,7 +201,7 @@ class Extractor():
                     
         return extracted_flux, extracted_var
         
-    def two_d_extract(self, file='', data=[], badpix=[], lenslet_profile='sim', rnoise=3.0, deconvolve=True):
+    def two_d_extract(self, file='', data=[], lenslet_profile='sim', rnoise=3.0, deconvolve=True):
         """ Extract using 2D information. The lenslet model used is a collapsed profile, 
         in 1D but where we take into account the slit shear/rotation by interpolating this
         1D slit profile to the nearest two pixels along each row (y-axis in code).
@@ -260,7 +261,7 @@ class Extractor():
         #Assuming that the data are in photo-electrons, construct a simple model for the
         #pixel inverse variance.
         pixel_inv_var = 1.0/(np.maximum(data,0) + rnoise**2)
-        pixel_inv_var[badpix]=0.0
+        pixel_inv_var[self.badpixmask]=0.0
                 
         #Loop through all orders then through all y pixels.
         for i in range(nm):
