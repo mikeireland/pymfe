@@ -348,19 +348,24 @@ class Calibration():
         -------
         s: string indicating success or failure
         """
+        no_darks=False
+        no_bias=False
+        no_flats=False
         #Check if any lists are provided
         if bias_list==[] and dark_list==[] and flat_list==[]:
             return 'You must supply at least one set of images'
         #Try to create a temporary folder for combined images
-        try: os.system('mkdir temp')
+        temp_dir='temp/'
+        try:
+            os.system('mkdir temp/;rm temp/*')
         except Exception: return 'Unable to create temporary folder for temp files'
         #If bias list was supplied, combined into master bias:
         if bias_list!=[]:
             if len(bias_list)>1:
-                result=self.image_combine(output='temp/mbias.fits', imagelist=bias_list, method='mean', sigmaclip=None,overwrite=True)
+                result=self.image_combine(output=temp_dir+'mbias.fits', imagelist=bias_list, method='mean', sigmaclip=None,overwrite=True)
                 if 'Successfully' not in result:
                     return 'Unable to combine biases'
-                mbias='temp/mbias.fits'
+                mbias=temp_dir+'mbias.fits'
             else:
                 mbias=bias_list[0]
             bias=pyfits.getdata(mbias)
@@ -371,25 +376,25 @@ class Calibration():
         #Now look at darks. Combine sets of high and low exposures if enough available.
         if dark_list!=[]:
             if len(dark_list)>1:
+                dark_list=np.array(dark_list)
                 #Look at fits files for exposure times and work out min and max
                 exposure_times=[]
                 for i in dark_list:
-                    try: exposure_times.append(pyfits.getheader['EXPTIME'])
-                    except Exception: exposure_times.append(pyfits.getheader['EXPOSURE'])
+                    try: exposure_times.append(pyfits.getheader(i)['EXPTIME'])
+                    except Exception: exposure_times.append(pyfits.getheader(i)['EXPOSURE'])
                 exposure_times=np.array(exposure_times)
-              
                 #Combine darks with lowest exposure time
-                result=self.image_combine(output='temp/mdark_min.fits', imagelist=dark_list[exposure_times==np.min(exposure_times)], method='mean', sigmaclip=None,overwrite=True)
+                result=self.image_combine(output=temp_dir+'mdark_min.fits', imagelist=dark_list[exposure_times==np.min(exposure_times)].tolist(), method='mean', sigmaclip=None,overwrite=True)
                 if 'Successfully' not in result:
                     return 'Unable to combine first set of darks'
-                dark_min=pyfits.getdata('temp/mdark_min.fits')-bias
+                dark_min=pyfits.getdata(temp_dir+'mdark_min.fits')-bias
 
                 if len(np.unique(exposure_times))>1:
                     #Combine darks with highest exposure time
-                    result=self.image_combine(output='temp/mdark_max.fits', imagelist=dark_list[exposure_times==np.max(exposure_times)], method='mean', sigmaclip=None,overwrite=True)
+                    result=self.image_combine(output=temp_dir+'mdark_max.fits', imagelist=dark_list[exposure_times==np.max(exposure_times)].tolist(), method='mean', sigmaclip=None,overwrite=True)
                     if 'Successfully' not in result:
                         return 'Unable to combine second set of darks'
-                    dark_max=pyfits.getdata('temp/mdark_max.fits')-bias
+                    dark_max=pyfits.getdata(temp_dir+'mdark_max.fits')-bias
                 else:
                     dark_max=dark_min
             else:
@@ -399,28 +404,29 @@ class Calibration():
             no_darks=True
         
 
-        #Now look at darks. Combine sets of high and low exposures if enough available.               
+        #Now look at flats. Combine sets of high and low exposures if enough available.               
         if flat_list!=[]:
             if len(flat_list)>1:
+                flat_list=np.array(flat_list)
                 #Look at fits files for exposure times and work out min and max
                 exposure_times=[]
                 for i in flat_list:
-                    try: exposure_times.append(pyfits.getheader['EXPTIME'])
-                    except Exception: exposure_times.append(pyfits.getheader['EXPOSURE'])
+                    try: exposure_times.append(pyfits.getheader(i)['EXPTIME'])
+                    except Exception: exposure_times.append(pyfits.getheader(i)['EXPOSURE'])
                 exposure_times=np.array(exposure_times)
               
                 #Combine flats with lowest exposure time
-                result=self.image_combine(output='temp/mflat_min.fits', imagelist=flat_list[exposure_times==np.min(exposure_times)], method='mean', sigmaclip=None,overwrite=True)
+                result=self.image_combine(output=temp_dir+'mflat_min.fits', imagelist=flat_list[exposure_times==np.min(exposure_times)].tolist(), method='mean', sigmaclip=None,overwrite=True)
                 if 'Successfully' not in result:
                     return 'Unable to combine first set of flats'
-                flat_min=pyfits.getdata('temp/mflat_min.fits')-bias
+                flat_min=pyfits.getdata(temp_dir+'mflat_min.fits')-bias
 
                 if len(np.unique(exposure_times))>1:
                     #Combine flats with highest exposure time
-                    result=self.image_combine(output='temp/mflat_max.fits', imagelist=flat_list[exposure_times==np.max(exposure_times)], method='mean', sigmaclip=None,overwrite=True)
+                    result=self.image_combine(output=temp_dir+'mflat_max.fits', imagelist=flat_list[exposure_times==np.max(exposure_times)].tolist(), method='mean', sigmaclip=None,overwrite=True)
                     if 'Successfully' not in result:
                         return 'Unable to combine second set of flats'
-                    flat_max=pyfits.getdata('temp/mflat_max.fits')-bias
+                    flat_max=pyfits.getdata(temp_dir+'mflat_max.fits')-bias
                 else:
                     flat_max=flat_min
             else:
@@ -436,33 +442,36 @@ class Calibration():
             badpix=np.zeros(np.shape(bias))
             mean=np.average(bias)
             std=np.std(bias)
-            badpix[np.where((bias>mean+std*sigma) and (bias<mean-std*sigma))]=1
+            badpix[(bias>mean+std*sigma)|(bias<mean-std*sigma)]=1
         #if we have darks
         if not no_darks:
             if np.size(badpix)==1:
                 badpix=np.zeros(np.shape(dark_max))
             mean=np.average(dark_max)
             std=np.std(dark_max)
-            badpix[np.where((dark_max>mean+std*sigma) and (dark_max<mean-std*sigma))]=1
+            badpix[(dark_max>mean+std*sigma)|(dark_max<mean-std*sigma)]=1
             #divide darks and look for outliers
+            dark_min[dark_min==0]=1
             darkdiv=np.float32(dark_max)/dark_min
-            pyfits.writeto('temp/darkdiv.fits',darkdiv)
+            pyfits.writeto(temp_dir+'darkdiv.fits',darkdiv)
             mean=np.average(darkdiv)
             std=np.std(darkdiv)
-            badpix[np.where((darkdiv>mean+std*sigma) and (darkdiv<mean-std*sigma))]=1
+            badpix[(darkdiv>mean+std*sigma)|(darkdiv<mean-std*sigma)]=1
         #if we have flats
         if not no_flats:
             if np.size(badpix)==1:
                 badpix=np.zeros(np.shape(flat_max))
             #divide flats and look for outliers
+            flat_min[flat_min==0]=1
             flatdiv=np.float32(flat_max)/flat_min
-            pyfits.writeto('temp/flatdiv.fits',flatdiv)
+            pyfits.writeto(temp_dir+'flatdiv.fits',flatdiv)
             mean=np.average(flatdiv)
             std=np.std(flatdiv)
-            badpix[np.where((flatdiv>mean+std*sigma) and (flatdiv<mean-std*sigma))]=1
+            badpix[(flatdiv>mean+std*sigma)|(flatdiv<mean-std*sigma)]=1
         try: 
-            pyfits.writeto(output,badpix)
+            pyfits.writeto(outfile,badpix,clobber=True)
         except Exception:
+            print 'Unable to save badpixel file'
             return 'Unable to save badpixel file'
         if delete_temp: os.system('rm -R temp/')
         return 'Successfully created a bad pixel mask'
