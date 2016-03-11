@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.ion()
 
-star_prefix = "tauCeti1114"
-thar_prefix = "tauCeti_thar1114"
+star_prefix = "sun_1072"
+thar_prefix = "thar-_17"
 
 weight_exponent = -0.5
 nref = 6
@@ -19,16 +19,16 @@ m_max=28
 #m_max=19
 
 #Load
-dd = np.loadtxt(star_prefix + "_rv.csv", delimiter=",")
-rvs = dd[:,1:]
+dd = np.loadtxt(star_prefix + "_bcor_rv.csv", delimiter=",")
+rvs = dd[:,1:14]
 mjds = dd[:,0]
 dd = np.loadtxt(star_prefix + "_rv_sig.csv", delimiter=",")
-rv_sigs = dd[:,1:]
-dd = np.loadtxt(thar_prefix + "_rv.csv", delimiter=",")
-thar_rvs = dd[:,1:]
+rv_sigs = dd[:,1:14]
+dd = np.loadtxt(thar_prefix + "_rvs.csv", delimiter=",")
+thar_rvs = dd[:,1:14]
 thar_mjds = dd[:,0]
 dd = np.loadtxt(thar_prefix + "_rv_sig.csv", delimiter=",")
-thar_rv_sigs = dd[:,1:]
+thar_rv_sigs = dd[:,1:14]
 
 
 #Firstly, correct the Thorium-Argon RVs

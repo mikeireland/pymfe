@@ -56,13 +56,17 @@ base_path = "/priv/mulga1/jbento/rhea2_data/20160221_sun/"
 files = glob.glob(base_path + "*" + star + "*.FIT*")
 
 # Flats and Darks
-# Note: Masterdark_target.fit copied from "\20150628\spectra_paper\"
-star_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_target.fit")
-flat_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_flat.fit")
+#star_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_target.fit")
+#flat_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_flat.fit")
 
-#file_dirs = [f[f.rfind("\\")-8:f.rfind("\\")] for f in files]
 flat_files = [base_path + "20151130_Masterflat_calibrated.fit"]*len(files)
 files.sort()
+
+# Remove bad section
+files.pop(912)
+files.pop(912)
+files.pop(912)
+print len(files)
 
 # Set to len(0) arrays when extracting ThAr
 #star_dark = np.empty(0)
@@ -73,6 +77,10 @@ files.sort()
 out_path = "/priv/mulga1/arains/Solar_Extracted/"
 extracted_files = glob.glob(out_path + "*" + star + "*extracted.fits")
 extracted_files.sort()
+extracted_files.pop(912)
+extracted_files.pop(912)
+extracted_files.pop(912)
+print len(extracted_files)
 
 # Saved reference spectrum
 ref_path = out_path + "reference_spectrum_74gammaCrucis.fits"                            
@@ -84,11 +92,11 @@ base_rv_path = out_path + star
 # Extract and save spectra
 #===============================================================================
 # Extract spectra
-fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
-                                               star_dark=star_dark, 
-                                               flat_files=flat_files,
-                                               flat_dark=flat_dark, 
-                                              coord=coord, do_bcor=do_bcor)
+#fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
+#                                               star_dark=star_dark, 
+#                                               flat_files=flat_files,
+#                                               flat_dark=flat_dark, 
+#                                              coord=coord, do_bcor=do_bcor)
                                                      
 # Save spectra (Make sure to save "wave" generated from rhea2_format)
 #rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
@@ -188,6 +196,8 @@ all_mjds = np.concatenate(mjds_list)
 # Save the extracted radial velocities
 #===============================================================================                                          
 # Save RVs
-rv.save_rvs(all_rvs, all_rv_sigs, all_bcors, all_mjds, base_rv_path)
+bcor_rvs = all_rvs + all_bcors.repeat(nm).reshape( (num_files,nm) )  
 
-bcor_rvs = all_rvs + all_bcors.repeat(nm).reshape( (num_files,nm) )                                    
+rv.save_rvs(all_rvs, all_rv_sigs, all_bcors, all_mjds, bcor_rvs, base_rv_path)
+
+                                  

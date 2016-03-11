@@ -662,7 +662,7 @@ class RadialVelocity():
         plt.plot_date([dates[i].plot_date for i in range(len(dates))], rv_mn)
         plt.show()
         
-    def save_rvs(self, rvs, rv_sigs, bcor, mjds, base_save_path):
+    def save_rvs(self, rvs, rv_sigs, bcor, mjds, bcor_rvs, base_save_path):
         """Method for saving calculated radial velocities and their errors to
         csv files.
         
@@ -686,12 +686,14 @@ class RadialVelocity():
         # Setup save paths
         rv_file = base_save_path + "_" + str(rvs.shape[0]) + "_rvs.csv"
         rv_sig_file = base_save_path + "_" + str(rvs.shape[0]) + "_rv_sig.csv"
-        bcor_file = base_save_path + "_" + str(rvs.shape[0]) + "_rv_bcor.csv"
+        bcor_file = base_save_path + "_" + str(rvs.shape[0]) + "_bcor.csv"
+        bcor_rv_file = base_save_path + "_" + str(rvs.shape[0]) + "_bcor_rv.csv"
         
         # Headers for each csv
         rv_h = "RV in m/s for each order, for each MJD epoch"
         rv_sig_h = "RV uncertainties in m/s for each order, for each MJD epoch"
         bcor_h = "Barycentric correction in m/s"
+        bcor_rvs_h = bcor_h = "Barycentrically corrected RVs in m/s"
         
         # Save rvs and errors
         np.savetxt(rv_file, np.append(mjds.reshape(nf,1), rvs,axis=1), 
@@ -700,3 +702,56 @@ class RadialVelocity():
                    fmt="%10.4f" + nm*", %6.1f", header=rv_sig_h)
         np.savetxt(bcor_file, np.append(mjds.reshape(nf,1),bcor.reshape(nf,1),axis=1), 
                    fmt="%10.4f" + ", %6.1f", header=bcor_h)          
+        np.savetxt(bcor_rv_file, np.append(mjds.reshape(nf,1), bcor_rvs,axis=1), 
+                   fmt="%10.4f" + nm*", %6.1f", header=bcor_rvs_h)
+    
+    def load_rvs(self, rvs_path, rv_sig_path, bcor_path=None):
+        """Opens the saved RV, RV sig and bcor csv files and formats the 
+        contents to be easily usable and non-redundant
+        
+        Parameters
+        ----------
+        rvs_path: string
+            File path to the rv csv
+        rv_sig_path: string    
+            File path to the rv sig csv
+        bcor_path: string    
+            File path to the bcor csv 
+
+        Returns
+        -------
+        mjds: 1D np.array(float)
+            Modified Julian Date (MJD) of each observation.
+        raw_rvs: 2D np.array(float)
+            Radial velocities of format (Observation, Order)
+        raw_rv_sigs: 2D np.array(float)
+            Radial velocity sigmas of format (Observation, Order) 
+        raw_bcor: 1D np.array(float)
+            RV barycentric correction for each observation
+        bcors_rvs: 2D np.array(float)
+            Barycentrically corrected radial velocity sigmas of format 
+            (Observation, Order)     
+        """
+        # Import
+        rvs = np.loadtxt(rvs_path, delimiter=",")
+        rv_sig = np.loadtxt(rv_sig_path, delimiter=",")
+        
+        # Format to remove mjd values from start of each row
+        mjds = rvs[:,0]
+        raw_rvs = rvs[:,1:]
+        raw_rv_sig = rv_sig[:,1:]
+
+        # Number of observations and orders respectively
+        nf = len(mjds)
+        nm = raw_rvs.shape[1]
+        
+        # Only deal with barycentric correction if it is passed in
+        # (It may not be when dealing with ThAr files)
+        if bcor_path is not None:
+            bcors = np.loadtxt(bcor_path, delimiter=",")
+            raw_bcor = bcors[:,1]
+            bcor_rvs = raw_rvs + raw_bcor.repeat(nm).reshape( (nf, nm) )
+        
+            return mjds, raw_rvs, raw_rv_sig, raw_bcor, bcor_rvs
+        else:
+            return mjds, raw_rvs, raw_rv_sig

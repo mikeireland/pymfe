@@ -37,8 +37,8 @@ rv = pymfe.rv.RadialVelocity()
 # File paths (Observations, Flats and Darks, save/load directories) 
 #===============================================================================
 # Science Frames
-star = "gammaCrucis"
-#star = "tauCeti"
+#star = "gammaCrucis"
+star = "tauCeti"
 #star = "thar"
 #base_path = "D:\\rhea_data\\gammaCrucis\\"
 base_path = "/priv/mulga1/jbento/rhea2_data/gammaCrucis/"
@@ -62,13 +62,12 @@ flat_files = [base_path + f + "/" + f + "_Masterflat.fit" for f in file_dirs]
 #flat_files = np.empty(0)
 
 # Extracted spectra output
-out_path = "/priv/mulga1/arains/Gacrux_Extracted/"
-extracted_files = glob.glob(out_path + "2015*" + star + 
-                            "*[0123456789]_extracted.fits")
+out_path = "/priv/mulga1/arains/TauCeti_Extracted/"
+extracted_files = glob.glob(out_path + "*" + star + "*.fits")
 extracted_files = []
-subdirs = ['20150601','20150602','20150603','20150604']
-for subdir in subdirs:
-    extracted_files.extend(glob.glob(out_path + subdir + "*" + star + "*_extracted.fit*"))
+#subdirs = ['20150601','20150602','20150603','20150604']
+#for subdir in subdirs:
+    #extracted_files.extend(glob.glob(out_path + subdir + "*" + star + "*_extracted.fit*"))
 
 
 # Saved reference spectrum
