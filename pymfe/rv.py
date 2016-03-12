@@ -35,6 +35,7 @@ from astropy.coordinates import SkyCoord
 from astropy import constants as const
 import PyAstronomy.pyasl as pyasl
 import opticstools as ot
+import pdb
 try:
     import pyfits
 except:
@@ -133,6 +134,8 @@ class RadialVelocity():
         norm = np.exp(params[1]*xx**2 + params[2]*xx + params[3])
         fitted_spect = spline_ref(wave*(1.0 - params[0]/const.c.si.value))*norm
         jac = np.empty( (ny,4) )
+        #The Jacobian is the derivative of fitted_spect/sdev with respect to 
+        #p[0] through p[3]
         jac[:,3] = fitted_spect/spect_sdev
         jac[:,2] = fitted_spect*xx/spect_sdev
         jac[:,1] = fitted_spect*xx**2/spect_sdev
@@ -141,7 +144,7 @@ class RadialVelocity():
         return jac
 
     def create_ref_spect(self, wave, fluxes, vars, bcors, rebin_fact=2, 
-                         gauss_sdev=1.0, med_cut=0.6,gauss_hw=7):
+                         gauss_sdev=1.0, med_cut=0.6,gauss_hw=7,threshold=150):
         """Create a reference spectrum from a series of target spectra, after 
         correcting the spectra barycentrically. 
         
@@ -227,6 +230,11 @@ class RadialVelocity():
         for j in range(nm):
             flux_ref[j] *= flux_orders[j]
             
+        #Threshold the data whenever the flux is less than "threshold"
+        if (threshold > 0):
+            bad = flux_ref<2*threshold
+            flux_ref[bad] *= np.maximum(flux_ref[bad]-threshold,0)/threshold
+
         # Create a Gaussian smoothing function for the reference spectrum. This 
         # is needed to prevent a bias to zero radial velocity, especially in the 
         # case of few data points.
@@ -368,7 +376,7 @@ class RadialVelocity():
         return fluxes, vars, bcors, mjds
 
     def calculate_rv_shift(self, wave_ref, ref_spect, fluxes, vars, bcors, 
-                           wave):
+                           wave,return_fitted_spects=False,bad_threshold=10):
         """Calculates the Radial Velocity shift. 
         
         Parameters
@@ -402,13 +410,14 @@ class RadialVelocity():
         rvs = np.zeros( (nf,nm) )
         rv_sigs = np.zeros( (nf,nm) )
         initp = np.zeros(4)
+        initp[3]=0.5
         initp[0]=0.0
         spect_sdev = np.sqrt(vars)
         fitted_spects = np.empty(fluxes.shape)
         for i in range(nf):
             # Start with initial guess of no intrinsic RV for the target.
             initp[0] = -bcors[i] 
-            
+            nbad=0
             for j in range(nm):
                 # This is the *only* non-linear interpolation function that 
                 # doesn't take forever
@@ -420,30 +429,33 @@ class RadialVelocity():
                 # 20 pixels is about 30km/s. 
                 args[2][:20] = np.inf
                 args[2][-20:] = np.inf
-                the_fit = op.leastsq(self.rv_shift_resid, initp, args=args, 
-                                     diag=[1e3,1e-6,1e-3,1], 
-                                     Dfun=self.rv_shift_jac, full_output=True)
-                
+                the_fit = op.leastsq(self.rv_shift_resid, initp, args=args,diag=[1e2,1e-6,1e-3,1],Dfun=self.rv_shift_jac, full_output=True)
+                #pdb.set_trace()
                 #Remove bad points...
                 resid = self.rv_shift_resid( the_fit[0], *args)
-                wbad = np.where( np.abs(resid) > 7)[0]
+                wbad = np.where( np.abs(resid) > bad_threshold)[0]
+                nbad += len(wbad)
+                #pdb.set_trace()
+
                 args[2][wbad] = np.inf
                 the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, 
-                                     diag=[1e3,1e-7,1e-3,1], 
+                                     diag=[1e2,1e-6,1e-3,1], 
                                      Dfun=self.rv_shift_jac, full_output=True)
                 
                 #Some outputs for testing
-                fitted_spects[i,j] = self.rv_shift_resid(the_fit[0], *args, 
-                                                         return_spect=True)
+                fitted_spects[i,j] = self.rv_shift_resid(the_fit[0], *args, return_spect=True)
+
                 #Save the fit and the uncertainty.
                 rvs[i,j] = the_fit[0][0]
                 try:
                     rv_sigs[i,j] = np.sqrt(the_fit[1][0,0])
                 except:
                     rv_sigs[i,j] = np.NaN
-            print("Done file {0:d}".format(i))
-            
-        return rvs, rv_sigs
+            print("Done file {0:d}. Bad spectral pixels: {1:d}".format(i,nbad))
+        if return_fitted_spects:
+            return rvs, rv_sigs, fitted_spects
+        else:
+            return rvs, rv_sigs
         
     def save_fluxes(self, files, fluxes, vars, bcors, wave, mjds, out_path):
         """Method to save the extracted spectra.

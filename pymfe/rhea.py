@@ -57,6 +57,7 @@ class Format():
             print("Unknown spectrograph arm!")
             raise UserWarning
         self.rnoise = 20.0
+        self.gain=0.3 #Gain in electrons per DN. 
         ## Some slit parameters...
         self.mode       = mode
         if (mode=="single"):
