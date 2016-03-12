@@ -27,7 +27,6 @@ import pdb
 # Constants/Variables
 do_bcor = False
 med_cut = 0.6
-plot_title = "gammaCrucis"
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
 # Initialise objects
@@ -48,25 +47,19 @@ rv = pymfe.rv.RadialVelocity()
 # File paths (Observations, Flats and Darks, save/load directories) 
 #===============================================================================
 # Science Frames
-#star = "gammaCrucis"
-#star = "tauCeti"
 #star = "thar"
 star = "sun"
 base_path = "/priv/mulga1/jbento/rhea2_data/20160221_sun/"
 files = glob.glob(base_path + "*" + star + "*.FIT*")
 
-# Flats and Darks
-#star_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_target.fit")
-#flat_dark = pyfits.getdata(base_path + "Dark frames\\Masterdark_flat.fit")
-
+# Note that the solar data has already been dark corrected
 flat_files = [base_path + "20151130_Masterflat_calibrated.fit"]*len(files)
 files.sort()
 
-# Remove bad section
+# Remove bad section (composed of frames 913, 914 and 915)
 files.pop(912)
 files.pop(912)
 files.pop(912)
-print len(files)
 
 # Set to len(0) arrays when extracting ThAr
 #star_dark = np.empty(0)
@@ -77,13 +70,15 @@ print len(files)
 out_path = "/priv/mulga1/arains/Solar_Extracted/"
 extracted_files = glob.glob(out_path + "*" + star + "*extracted.fits")
 extracted_files.sort()
+
+# Again, don't consider  bad section, but this time from previously extracted
+# and saved data
 extracted_files.pop(912)
 extracted_files.pop(912)
 extracted_files.pop(912)
-print len(extracted_files)
 
 # Saved reference spectrum
-ref_path = out_path + "reference_spectrum_74gammaCrucis.fits"                            
+ref_path = out_path + "reference_spectrum_10_sun.fits"                            
                             
 # RV csv output
 base_rv_path = out_path + star
@@ -199,5 +194,3 @@ all_mjds = np.concatenate(mjds_list)
 bcor_rvs = all_rvs + all_bcors.repeat(nm).reshape( (num_files,nm) )  
 
 rv.save_rvs(all_rvs, all_rv_sigs, all_bcors, all_mjds, bcor_rvs, base_rv_path)
-
-                                  
