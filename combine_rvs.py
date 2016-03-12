@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.ion()
 
-star_prefix = "sun_1072"
-thar_prefix = "thar-_17"
+star_prefix = "tauCeti_16"
+thar_prefix = "thar_64"
 
 weight_exponent = -0.5
 nref = 6
