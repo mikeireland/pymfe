@@ -93,7 +93,7 @@ class RadialVelocity():
             The fit residuals
         """
         ny = len(spect)
-        xx = np.arange(ny)-ny//2
+        xx = (np.arange(ny)-ny//2)/ny
         norm = np.exp(params[1]*xx**2 + params[2]*xx + params[3])
         # Lets get this sign correct. A redshift (positive velocity) means that
         # a given wavelength for the reference corresponds to a longer  
@@ -106,6 +106,43 @@ class RadialVelocity():
             return fitted_spect
         else:
             return (fitted_spect - spect)/spect_sdev
+
+    def rv_shift_chi2(self, params, wave, spect, spect_sdev, spline_ref):
+        """Find the chi-squared for an RV fit. Just a wrapper for rv_shift_resid,
+        so the docstring is cut and paste!
+        
+        The function for parameters p[0] through p[3] is:
+        
+        y(x) = Ref[ wave(x) * (1 - p[0]/c) ] * exp(p[1] * x^2 + p[2] * x + p[3])
+        
+        Here "Ref" is a function f(wave)
+         
+        Parameters
+        ----------
+        params: 
+            ...
+        wave: float array
+            Wavelengths for the observed spectrum.
+        spect: float array
+            The observed spectrum
+        spect_sdev: 
+            ...
+        spline_ref: 
+            ...
+        return_spect: boolean
+            Whether to return the fitted spectrum or the 
+            
+        wave_ref: float array
+            The wavelengths of the reference spectrum
+        ref: float array
+            The reference spectrum
+        
+        Returns
+        -------
+        chi2:
+            The fit chi-squared
+        """
+        return np.sum( self.rv_shift_resid(params, wave, spect, spect_sdev, spline_ref)**2 )
 
     def rv_shift_jac(self, params, wave, spect, spect_sdev, spline_ref):
         """Jacobian function for the above. Dodgy... sure, but
@@ -130,7 +167,7 @@ class RadialVelocity():
             The Jacobian.
         """
         ny = len(spect)
-        xx = np.arange(ny)-ny//2
+        xx = (np.arange(ny)-ny//2)/ny
         norm = np.exp(params[1]*xx**2 + params[2]*xx + params[3])
         fitted_spect = spline_ref(wave*(1.0 - params[0]/const.c.si.value))*norm
         jac = np.empty( (ny,4) )
@@ -144,7 +181,7 @@ class RadialVelocity():
         return jac
 
     def create_ref_spect(self, wave, fluxes, vars, bcors, rebin_fact=2, 
-                         gauss_sdev=1.0, med_cut=0.6,gauss_hw=7,threshold=150):
+                         gauss_sdev=1.0, med_cut=0.6,gauss_hw=7,threshold=100):
         """Create a reference spectrum from a series of target spectra, after 
         correcting the spectra barycentrically. 
         
@@ -429,7 +466,11 @@ class RadialVelocity():
                 # 20 pixels is about 30km/s. 
                 args[2][:20] = np.inf
                 args[2][-20:] = np.inf
-                the_fit = op.leastsq(self.rv_shift_resid, initp, args=args,diag=[1e2,1e-6,1e-3,1],Dfun=self.rv_shift_jac, full_output=True)
+                the_fit = op.leastsq(self.rv_shift_resid, initp, args=args,diag=[1e3,1,1,1],Dfun=self.rv_shift_jac, full_output=True)
+                #the_fit = op.leastsq(self.rv_shift_resid, initp, args=args,diag=[1e3,1e-6,1e-3,1], full_output=True,epsfcn=1e-9)
+                
+                #The following line also doesn't work "out of the box".
+                #the_fit = op.minimize(self.rv_shift_chi2,initp,args=args)
                 #pdb.set_trace()
                 #Remove bad points...
                 resid = self.rv_shift_resid( the_fit[0], *args)
@@ -438,12 +479,13 @@ class RadialVelocity():
                 #pdb.set_trace()
 
                 args[2][wbad] = np.inf
-                the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, 
-                                     diag=[1e2,1e-6,1e-3,1], 
-                                     Dfun=self.rv_shift_jac, full_output=True)
+                the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, diag=[1e3,1,1,1], Dfun=self.rv_shift_jac, full_output=True)
+                #the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, diag=[1e3,1e-6,1e-3,1], full_output=True, epsfcn=1e-9)
                 
                 #Some outputs for testing
                 fitted_spects[i,j] = self.rv_shift_resid(the_fit[0], *args, return_spect=True)
+                if ( np.abs(the_fit[0][0] + bcors[i]) < 1e-4 ):
+                    pdb.set_trace() #This shouldn't happen, and indicates a problem with the fit.
 
                 #Save the fit and the uncertainty.
                 rvs[i,j] = the_fit[0][0]
