@@ -77,12 +77,12 @@ flat_path = base_path + "20150527/20150527_Masterflat.fit"
 flat_files = [flat_path]*len(files)
 
 # Set to len(0) arrays when extracting ThAr
-star_dark = np.empty(0)
-flat_dark = np.empty(0)
-flat_files = np.empty(0)
+#star_dark = np.empty(0)
+#flat_dark = np.empty(0)
+#flat_files = np.empty(0)
 
 # Extracted spectra output
-out_path = "/priv/mulga1/arains/Gacrux_extr_no_dark/"
+out_path = "/priv/mulga1/arains/Gacrux_Extracted/"
 extracted_files = glob.glob(out_path + "*" + star + "*.fits")
 extracted_files = []
                  
