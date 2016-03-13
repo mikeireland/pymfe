@@ -14,6 +14,7 @@ Contents:
    extract
    ghost
    rhea
+   rv
 
 Indices and tables
 ==================

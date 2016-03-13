@@ -13,7 +13,7 @@ the python line length guidelines --> the main benefit of which is having
 multiple editors open side by side on smaller screens)
 
 TODO
-----
+
 1) Move extract method to either extract module or rhea
 2) Try to separate calculation/processing of data from saving/loading/displaying
 3) Tidy up inputs to functions (e.g. cull unnecessary input parameters)
@@ -61,27 +61,24 @@ class RadialVelocity():
         
         The function for parameters p[0] through p[3] is:
         
-        y(x) = Ref[ wave(x) * (1 - p[0]/c) ] * exp(p[1] * x^2 + p[2] * x + p[3])
+        .. math::
+            y(x) = Ref[ wave(x) * (1 - p[0]/c) ] * exp(p[1] * x^2 + p[2] * x + p[3])
         
         Here "Ref" is a function f(wave)
         
-        TODO: replace with e.g. op.minimize_scalar to account for bad pixels
-        
         Parameters
-        ----------
-        params: 
-            ...
+        ----------        
+        params: array-like
         wave: float array
-            Wavelengths for the observed spectrum.
+            Wavelengths for the observed spectrum.        
         spect: float array
-            The observed spectrum
-        spect_sdev: 
-            ...
-        spline_ref: 
-            ...
+            The observed spectra     
+        spect_sdev: float array
+            standard deviation of the input spectra.        
+        spline_ref: InterpolatedUnivariateSpline instance
+            For interpolating the reference spectrum
         return_spect: boolean
-            Whether to return the fitted spectrum or the 
-            
+            Whether to return the fitted spectrum or the residuals.
         wave_ref: float array
             The wavelengths of the reference spectrum
         ref: float array
@@ -89,7 +86,7 @@ class RadialVelocity():
         
         Returns
         -------
-        resid:
+        resid: float array
             The fit residuals
         """
         ny = len(spect)
@@ -113,12 +110,14 @@ class RadialVelocity():
         
         The function for parameters p[0] through p[3] is:
         
-        y(x) = Ref[ wave(x) * (1 - p[0]/c) ] * exp(p[1] * x^2 + p[2] * x + p[3])
+        .. math::
+            y(x) = Ref[ wave(x) * (1 - p[0]/c) ] * exp(p[1] * x^2 + p[2] * x + p[3])
         
         Here "Ref" is a function f(wave)
          
         Parameters
         ----------
+        
         params: 
             ...
         wave: float array
@@ -142,16 +141,32 @@ class RadialVelocity():
         chi2:
             The fit chi-squared
         """
-        return np.sum( self.rv_shift_resid(params, wave, spect, spect_sdev, spline_ref)**2 )
+        return np.sum(self.rv_shift_resid(params, wave, spect, spect_sdev, spline_ref)**2)
 
     def rv_shift_jac(self, params, wave, spect, spect_sdev, spline_ref):
-        """Jacobian function for the above. Dodgy... sure, but
-        without this there seems to be numerical derivative instability.
+        r"""Explicit Jacobian function for rv_shift_resid. 
+        
+        This is not a completely analytic solution, but without it there seems to be 
+        numerical instability.
+        
+        The key equations are:
+        
+        .. math:: f(x) = R( \lambda(x)  (1 - p_0/c) ) \times \exp(p_1 x^2 + p_2 + p_3)
+        
+           g(x) = (f(x) - d(x))/\sigma(x)
+        
+           \frac{dg}{dp_0}(x) \approx  [f(x + 1 m/s) -f(x) ]/\sigma(x)
+        
+           \frac{dg}{dp_1}(x) = x^2 f(x) / \sigma(x)
+        
+           \frac{dg}{dp_2}(x) = x f(x) / \sigma(x)
+        
+           \frac{dg}{dp_3}(x) = f(x) / \sigma(x)
         
         Parameters
         ----------
-        params: 
-            ...
+        
+        params: float array
         wave: float array
             Wavelengths for the observed spectrum.
         spect: float array
@@ -182,8 +197,21 @@ class RadialVelocity():
 
     def create_ref_spect(self, wave, fluxes, vars, bcors, rebin_fact=2, 
                          gauss_sdev=1.0, med_cut=0.6,gauss_hw=7,threshold=100):
-        """Create a reference spectrum from a series of target spectra, after 
-        correcting the spectra barycentrically. 
+        """Create a reference spectrum from a series of target spectra.
+        
+        The process is:
+        
+        1) Re-grid the spectra into a rebin_fact times smaller wavelength grid.
+        2) The spectra are barycentrically corrected by linear interpolation. Note 
+           that when used on a small data set, typically the spectra will be shifted by 
+           many km/s. For an RV-stable star, the fitting process then needs to find the 
+           opposite of this barycentric velocity. 
+        3) Remove bad (i.e. low flux) files.
+        4) Median combine the spectra.
+        5) Convolve the result by a Gaussian to remove high spatial frequency noise. This
+           can be important when the reference spectrum is created from only a small 
+           number of input spectra, and high-frequency noise can be effectively fitted to 
+           itself. 
         
         Parameters
         ----------
@@ -223,10 +251,11 @@ class RadialVelocity():
         wave_ref = np.empty( (nm,rebin_fact*ny + 2) )
         ref_spect = np.empty( (nm,rebin_fact*ny + 2) )
 
-        #First, rebin everything.
+        #First, rebin everything, using opticstools.utils.regrid_fft
         new_shape = (fluxes.shape[1],rebin_fact*fluxes.shape[2])
         fluxes_rebin = np.empty( (fluxes.shape[0],fluxes.shape[1],
                                   rebin_fact*fluxes.shape[2]) )
+                                  
         for i in range(nf):
             fluxes_rebin[i] = ot.utils.regrid_fft(fluxes[i],new_shape)
 
@@ -248,8 +277,7 @@ class RadialVelocity():
                 fluxes_rebin[i,j] = np.interp(ww*(1-bcors[i]/C), ww[::-1],
                                               fluxes_rebin[i,j,::-1])
                 
-        #Subsample a reference spectrum using opticstools.utils.regrid_fft
-        #and interpolate to fit. 
+        #Combine the spectra.
         flux_meds = np.median(fluxes_rebin,axis=2)
         flux_files = np.median(flux_meds,axis=1)
         if med_cut > 0:
@@ -291,12 +319,20 @@ class RadialVelocity():
                         flat_dark=None, location=('151.2094','-33.865',100.0),  
                         coord=None, do_bcor=True):
         """Extract the spectrum from a file, given a dark file, a flat file and
-        a dark for the flat. 
+        a dark for the flat. The process is:
         
-        TODO:
-        Not the neatest implementation, but should account for the fact that
+        1) Dark correcting the data and the flat fields.
+        2) Computing (but not applying) Barycentric corrections.
+        3) Extracting the data and the flat fields using the extract module, to form 
+           :math:`f_m(x)`, the flux for orders m and dispersion direction pixels x. 
+        4) Normalising the flat fields, so that the median of each order is 1.0.
+        5) Dividing by the extracted flat field. Uncertainties from the flat field are 
+           added in quadrature.
+
+        TODO: Not the neatest implementation, but should account for the fact that
         there are no flats or darks for the ThAr frames. Might be worth tidying
         up and making the implementation a little more elegant.
+
         
         Parameters
         ----------
@@ -329,6 +365,7 @@ class RadialVelocity():
             Wavelength coordinate map of form (Order, Wavelength/pixel)
         mjds: 1D np.array(float)
             Modified Julian Date (MJD) of each observation.
+        
         """
         # Initialise list of return values 
         # Each index represents a single observation
@@ -414,7 +451,28 @@ class RadialVelocity():
 
     def calculate_rv_shift(self, wave_ref, ref_spect, fluxes, vars, bcors, 
                            wave,return_fitted_spects=False,bad_threshold=10):
-        """Calculates the Radial Velocity shift. 
+        """Calculates the Radial Velocity of each spectrum
+        
+        The radial velocity shift of the reference spectrum required
+        to match the flux in each order in each input spectrum is calculated
+        
+        The input fluxes to this method are flat-fielded data, which are then fitted with 
+        a barycentrically corrected reference spectrum :math:`R(\lambda)`, according to 
+        the following equation:
+
+        .. math::
+            f(x) = R( \lambda(x)  (1 - p_0/c) ) \\times \exp(p_1 x^2 + p_2 + p_3)
+
+        The first term in this equation is simply the velocity corrected spectrum, based on a 
+        the arc-lamp derived reference wavelength scale :math:`\lambda(x)` for pixels coordinates x.
+        The second term in the equation is a continuum normalisation - a shifted Gaussian was 
+        chosen as a function that is non-zero everywhere. The scipy.optimize.leastsq function is used
+        to find the best fitting set fof parameters :math:`p_0` through to :math`p_3`. 
+
+        The reference spectrum function :math:`R(\lambda)` is created using a wavelength grid 
+        which is over-sampled with respect to the data by a factor of 2. Individual fitted 
+        wavelengths are then found by cubic spline interpolation on this :math:`R_j(\lambda_j)` 
+        discrete grid.
         
         Parameters
         ----------
