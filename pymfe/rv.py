@@ -534,7 +534,16 @@ class RadialVelocity():
                 resid = self.rv_shift_resid( the_fit[0], *args)
                 wbad = np.where( np.abs(resid) > bad_threshold)[0]
                 nbad += len(wbad)
-                #pdb.set_trace()
+                #20 bad pixels in an order is *crazy*
+                if len(wbad)>20:
+                    fitted_spect = self.rv_shift_resid(the_fit[0], *args, return_spect=True)
+                    plt.plot(args[0], args[1])
+                    plt.plot(args[0][wbad], args[1][wbad],'o')
+                    plt.plot(args[0], fitted_spect)
+                    plt.xlabel("Wavelength")
+                    plt.ylabel("Flux")
+                    print("Lots of 'bad' pixels. Type c to continue if not a problem")
+                    pdb.set_trace()
 
                 args[2][wbad] = np.inf
                 the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, diag=[1e3,1,1,1], Dfun=self.rv_shift_jac, full_output=True)
