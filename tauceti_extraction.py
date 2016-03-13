@@ -132,7 +132,7 @@ rvs, rv_sigs = rv.calculate_rv_shift(wave_ref, ref_spect, fluxes, vars, bcors,
 nf = fluxes.shape[0]
 nm = fluxes.shape[1]
                                      
-bcor_rvs = rvs + bcors.repeat(nm).reshape( (nf, nm) )                                     
+bcor_rvs = rvs - bcors.repeat(nm).reshape( (nf, nm) )                                     
                                      
 # Save RVs
 rv.save_rvs(rvs, rv_sigs, bcors, mjds, bcor_rvs, base_rv_path)

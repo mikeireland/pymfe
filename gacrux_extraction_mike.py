@@ -23,7 +23,7 @@ from astropy import units as u
 #===============================================================================
 # Constants/Variables
 do_bcor = True
-med_cut = 0.6
+med_cut = 0.5
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
 # Specified header parameters
@@ -133,7 +133,7 @@ rvs, rv_sigs = rv.calculate_rv_shift(wave_ref, ref_spect, fluxes, vars, bcors,
 nf = fluxes.shape[0]
 nm = fluxes.shape[1]
                                      
-bcor_rvs = rvs + bcors.repeat(nm).reshape( (nf, nm) )                                     
+bcor_rvs = rvs - bcors.repeat(nm).reshape( (nf, nm) )                                     
                                      
 # Save RVs
 rv.save_rvs(rvs, rv_sigs, bcors, mjds, bcor_rvs, base_rv_path)

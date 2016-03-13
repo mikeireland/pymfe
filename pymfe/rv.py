@@ -268,13 +268,16 @@ class RadialVelocity():
             wave_ref[j,0]  = wave_ref[j,1] * (C + 1e5)/C
             wave_ref[j,-1] = wave_ref[j,-2] * (C - 1e5)/C
 
-        #Barycentric correct
+        #Barycentric correct. For a positive barycentric velocity, the observer is
+        #moving towards the star, which means that star is blue-shifted and the 
+        #correct rest-frame spectrum is at longer wavelengths. The interpolation
+        #below shifts the spectrum to the red, as required.
         for i in range(nf):
             for j in range(nm):
                 # Awkwardly, we've extended the wavelength scale by 2 elements,  
                 # but haven't yet extended the fluxes...
                 ww = wave_ref[j,1:-1]
-                fluxes_rebin[i,j] = np.interp(ww*(1-bcors[i]/C), ww[::-1],
+                fluxes_rebin[i,j] = np.interp(ww*(1+bcors[i]/C), ww[::-1],
                                               fluxes_rebin[i,j,::-1])
                 
         #Combine the spectra.
@@ -289,8 +292,13 @@ class RadialVelocity():
         for g in good_files:
             for j in range(nm):
                 flux_norm[g,j,:] /= flux_meds[g,j]
+
+        #pdb.set_trace()
+
+
         #Create a median over files
         flux_ref = np.median(flux_norm[good_files],axis=0)
+
         #Multiply this by the median for each order  
         for j in range(nm):
             flux_ref[j] *= flux_orders[j]
@@ -511,7 +519,7 @@ class RadialVelocity():
         fitted_spects = np.empty(fluxes.shape)
         for i in range(nf):
             # Start with initial guess of no intrinsic RV for the target.
-            initp[0] = -bcors[i] 
+            initp[0] = bcors[i] 
             nbad=0
             for j in range(nm):
                 # This is the *only* non-linear interpolation function that 
@@ -534,9 +542,10 @@ class RadialVelocity():
                 resid = self.rv_shift_resid( the_fit[0], *args)
                 wbad = np.where( np.abs(resid) > bad_threshold)[0]
                 nbad += len(wbad)
-                #20 bad pixels in an order is *crazy*
+                #15 bad pixels in a single order is *crazy*
                 if len(wbad)>20:
                     fitted_spect = self.rv_shift_resid(the_fit[0], *args, return_spect=True)
+                    plt.clf()
                     plt.plot(args[0], args[1])
                     plt.plot(args[0][wbad], args[1][wbad],'o')
                     plt.plot(args[0], fitted_spect)
@@ -551,7 +560,7 @@ class RadialVelocity():
                 
                 #Some outputs for testing
                 fitted_spects[i,j] = self.rv_shift_resid(the_fit[0], *args, return_spect=True)
-                if ( np.abs(the_fit[0][0] + bcors[i]) < 1e-4 ):
+                if ( np.abs(the_fit[0][0] - bcors[i]) < 1e-4 ):
                     pdb.set_trace() #This shouldn't happen, and indicates a problem with the fit.
 
                 #Save the fit and the uncertainty.
@@ -814,7 +823,7 @@ class RadialVelocity():
         rv_h = "RV in m/s for each order, for each MJD epoch"
         rv_sig_h = "RV uncertainties in m/s for each order, for each MJD epoch"
         bcor_h = "Barycentric correction in m/s"
-        bcor_rvs_h = bcor_h = "Barycentrically corrected RVs in m/s"
+        bcor_rvs_h = "Barycentrically corrected RVs in m/s"
         
         # Save rvs and errors
         np.savetxt(rv_file, np.append(mjds.reshape(nf,1), rvs,axis=1), 
