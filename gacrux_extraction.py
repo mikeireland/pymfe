@@ -29,7 +29,7 @@ coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 # Specified header parameters
 xbin = 2
 ybin = 1
-exptime = 1800
+exptime = 1200
 
 badpixel_mask= pyfits.getdata('/priv/mulga1/jbento/rhea2_data/badpix.fits')
 badpix=np.where(badpixel_mask==1)
@@ -82,7 +82,7 @@ flat_files = [flat_path]*len(files)
 #flat_files = np.empty(0)
 
 # Extracted spectra output
-out_path = "/priv/mulga1/arains/Gacrux_Extracted/"
+out_path = "/priv/mulga1/arains/Gacrux_Extracted_" + str(exptime) + "/"
 extracted_files = glob.glob(out_path + "*" + star + "*.fits")
 extracted_files = []
                  
