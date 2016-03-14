@@ -22,14 +22,14 @@ from astropy import units as u
 # Parameters/Constants/Variables/Initialisation 
 #===============================================================================
 # Constants/Variables
-do_bcor = True
+do_bcor = False
 med_cut = 0.6
 coord = SkyCoord('01 44 04.08338 -15 56 14.9262',unit=(u.hourangle, u.deg))
 
 # Specified header parameters
 xbin = 2
 ybin = 1
-exptime = 1800
+exptime = 120
 
 badpixel_mask= pyfits.getdata('/priv/mulga1/jbento/rhea2_data/badpix.fits')
 badpix=np.where(badpixel_mask==1)
@@ -46,9 +46,10 @@ rv = pymfe.rv.RadialVelocity()
 #===============================================================================
 # Science Frames
 star = "gammaCrucis"
+star = "thar"
 base_path = "/priv/mulga1/jbento/rhea2_data/gammaCrucis/"
 
-all_files = glob.glob(base_path + "2015*/*" + star + "*.fit*")
+all_files = glob.glob(base_path + "2015*/*" + star + "_*.fit*")
 all_files.sort()
 files = []
 
@@ -67,7 +68,7 @@ for f in all_files:
     fits.close()
         
 # Flats and Darks
-dark_path = base_path + "Dark frames/Masterdark_target_" + str(exptime) +".fits"
+dark_path = base_path + "Dark frames/Masterdark_thar.fit"
 star_dark = pyfits.getdata(dark_path)
 flat_dark = pyfits.getdata(base_path + "Dark frames/Masterdark_flat.fit")
 
@@ -77,7 +78,7 @@ flat_path = base_path + "20150527/20150527_Masterflat.fit"
 flat_files = [flat_path]*len(files)
 
 # Extracted spectra output
-out_path = "/priv/mulga1/arains/Gacrux_Extracted_" + str(exptime) + "/"
+out_path = "/priv/mulga1/arains/Gacrux_Extracted_ThAr/"
 extracted_files = glob.glob(out_path + "*" + star + "*extracted.fits")
 extracted_files.sort()
                  
@@ -89,17 +90,17 @@ base_rv_path = out_path + star
 #===============================================================================
 # Extract spectra ("wave" removed)
 # OPTION 1: Extract and save spectra
-#fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
-#                                               star_dark=star_dark, 
-#                                               flat_files=flat_files,
-#                                               flat_dark=flat_dark, 
-#                                              coord=coord, do_bcor=do_bcor)
+fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
+                                               star_dark=star_dark, 
+                                               flat_files=flat_files,
+                                               flat_dark=flat_dark, 
+                                               coord=coord, do_bcor=do_bcor)
                                                      
 # Save spectra (Make sure to save "wave" generated from rhea2_format)
-#rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
+rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
 
 # OPTION 2: Load previously extracted spectra
-fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
+#fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
 
 #===============================================================================
 # Create and save/import reference spectrum
