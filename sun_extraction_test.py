@@ -191,6 +191,6 @@ all_mjds = np.concatenate(mjds_list)
 # Save the extracted radial velocities
 #===============================================================================                                          
 # Save RVs
-bcor_rvs = all_rvs - all_bcors.repeat(nm).reshape( (num_files,nm) )  
+bcor_rvs = all_rvs + all_bcors.repeat(nm).reshape( (num_files,nm) )  
 
 rv.save_rvs(all_rvs, all_rv_sigs, all_bcors, all_mjds, bcor_rvs, base_rv_path)

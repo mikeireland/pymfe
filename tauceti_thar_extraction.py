@@ -22,13 +22,13 @@ from astropy import units as u
 # Parameters/Constants/Variables/Initialisation 
 #===============================================================================
 # Constants/Variables
-do_bcor = True
+do_bcor = False
 med_cut = 0.6
 
 # Specified header parameters
 xbin = 2
 ybin = 1
-exptime = 1200
+exptime = 60
 
 badpixel_mask= pyfits.getdata('/priv/mulga1/jbento/rhea2_data/badpix.fits')
 badpix=np.where(badpixel_mask==1)
@@ -44,10 +44,10 @@ rv = pymfe.rv.RadialVelocity()
 # File paths (Observations, Flats and Darks, save/load directories) 
 #===============================================================================
 # Science Frames
-star = "tauCeti"
+star = "thar"
 base_path = "/priv/mulga1/jbento/rhea2_data/tauCeti/"
 
-# Find all Tau Ceti files and sort by observation date in MJD
+# Find all Tau Ceti ThAr files and sort by observation date in MJD
 all_files = np.array(glob.glob(base_path + "2015*/*" + star + "_*.fit*"))
 sorted = np.argsort([pyfits.getheader(e)['JD'] for e in all_files])
 all_files = all_files[sorted]
@@ -68,7 +68,7 @@ for f in all_files:
     fits.close()
         
 # Flats and Darks
-star_dark = pyfits.getdata(base_path + "Dark frames/MasterDarkTarget.fits")
+star_dark = pyfits.getdata(base_path + "Dark frames/MasterDarkThar.fits")
 flat_dark = pyfits.getdata(base_path + "Dark frames/MasterDarkFlat.fits")
 
 # Note: this particular flat was chosen as it has an exposure time of 2.5 
@@ -82,8 +82,8 @@ extracted_files = np.array(glob.glob(out_path + "*" + star + "*extracted.fits"))
              
 # Sort to account for files not being labelled with MJD
 #sorted = np.argsort([pyfits.getheader(e)['JD'] for e in extracted_files])
-#extracted_files = extracted_files[sorted]  
-  
+#extracted_files = extracted_files[sorted] 
+                 
 # RV csv output
 base_rv_path = out_path + star
 
@@ -93,7 +93,7 @@ base_rv_path = out_path + star
 # Extract spectra ("wave" removed)
 # OPTION 1: Extract and save spectra
 fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
-                                              star_dark=star_dark, 
+                                               star_dark=star_dark, 
                                                flat_files=flat_files,
                                                flat_dark=flat_dark, 
                                                do_bcor=do_bcor)

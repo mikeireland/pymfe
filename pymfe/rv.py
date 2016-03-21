@@ -277,8 +277,9 @@ class RadialVelocity():
                 # Awkwardly, we've extended the wavelength scale by 2 elements,  
                 # but haven't yet extended the fluxes...
                 ww = wave_ref[j,1:-1]
-                fluxes_rebin[i,j] = np.interp(ww*(1+bcors[i]/C), ww[::-1],
+                fluxes_rebin[i,j] = np.interp(ww*(1-bcors[i]/C), ww[::-1],
                                               fluxes_rebin[i,j,::-1])
+                #!!! New Code. This was already checked and makes no sense.
                 
         #Combine the spectra.
         flux_meds = np.median(fluxes_rebin,axis=2)
@@ -325,7 +326,7 @@ class RadialVelocity():
 
     def extract_spectra(self, files, extractor, star_dark=None, flat_files=None,   
                         flat_dark=None, location=('151.2094','-33.865',100.0),  
-                        coord=None, do_bcor=True):
+                        coord=None, do_bcor=True, ra_dec_hr=False):
         """Extract the spectrum from a file, given a dark file, a flat file and
         a dark for the flat. The process is:
         
@@ -407,18 +408,27 @@ class RadialVelocity():
                 continue            
             header = pyfits.getheader(file)
             
-            date = Time(header['DATE-OBS'], location=location)
+            date = Time(header['JD'], format='jd', location=location)
             dates.append(date)
             
             # Determine the barycentric correction
             if do_bcor:
                 if not coord:
-                    coord=SkyCoord(ra=float(header['RA']), 
-                                   dec=float(header['DEC']) , unit='deg')
+                    # Depending on whether the RA and DEC is saved in hours or
+                    # degrees, load and create a SkyCoord object
+                    if ra_dec_hr:
+                        ra_deg = float(header['RA'])*15
+                    else:
+                        ra_deg = float(header['RA'])
+
+                    dec_deg = float(header['DEC'])                    
+                    coord = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg') 
+                    
                 if not location:
                     location=(float(header['LONG']), float(header['LAT']), 
                               float(header['HEIGHT']))
                 #(obs_long, obs_lat, obs_alt, ra2000, dec2000, jd, debug=False)
+                #pdb.set_trace()
                 bcors.append(1e3*pyasl.helcorr(float(location[0]), 
                              float(location[1]),location[2],coord.ra.deg, 
                              coord.dec.deg,date.jd)[0] )
@@ -426,6 +436,7 @@ class RadialVelocity():
                 bcors.append(0.0)
             
             # Extract the fluxes and variance for the science and flat frames
+            print("Extracting spectra from file #", str(ix))
             flux, var = extractor.one_d_extract(data=data, rnoise=20.0)
             
             # Continue only when flats have been supplied
@@ -519,7 +530,7 @@ class RadialVelocity():
         fitted_spects = np.empty(fluxes.shape)
         for i in range(nf):
             # Start with initial guess of no intrinsic RV for the target.
-            initp[0] = bcors[i] 
+            initp[0] = -bcors[i] #!!! New Change 
             nbad=0
             for j in range(nm):
                 # This is the *only* non-linear interpolation function that 
@@ -551,8 +562,8 @@ class RadialVelocity():
                     plt.plot(args[0], fitted_spect)
                     plt.xlabel("Wavelength")
                     plt.ylabel("Flux")
-                    print("Lots of 'bad' pixels. Type c to continue if not a problem")
-                    pdb.set_trace()
+                    #print("Lots of 'bad' pixels. Type c to continue if not a problem")
+                    #pdb.set_trace()
 
                 args[2][wbad] = np.inf
                 the_fit = op.leastsq(self.rv_shift_resid, initp,args=args, diag=[1e3,1,1,1], Dfun=self.rv_shift_jac, full_output=True)
@@ -561,8 +572,8 @@ class RadialVelocity():
                 #Some outputs for testing
                 fitted_spects[i,j] = self.rv_shift_resid(the_fit[0], *args, return_spect=True)
                 if ( np.abs(the_fit[0][0] - bcors[i]) < 1e-4 ):
-                    pdb.set_trace() #This shouldn't happen, and indicates a problem with the fit.
-
+                    #pdb.set_trace() #This shouldn't happen, and indicates a problem with the fit.
+                    pass
                 #Save the fit and the uncertainty.
                 rvs[i,j] = the_fit[0][0]
                 try:
