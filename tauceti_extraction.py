@@ -81,8 +81,8 @@ out_path = "/priv/mulga1/arains/TauCeti_Extracted/"
 extracted_files = np.array(glob.glob(out_path + "*" + star + "*extracted.fits"))
              
 # Sort to account for files not being labelled with MJD
-#sorted = np.argsort([pyfits.getheader(e)['JD'] for e in extracted_files])
-#extracted_files = extracted_files[sorted]  
+sorted = np.argsort([pyfits.getheader(e)['JD'] for e in extracted_files])
+extracted_files = extracted_files[sorted]  
   
 # RV csv output
 base_rv_path = out_path + star
@@ -92,17 +92,18 @@ base_rv_path = out_path + star
 #===============================================================================
 # Extract spectra ("wave" removed)
 # OPTION 1: Extract and save spectra
-fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
-                                              star_dark=star_dark, 
-                                               flat_files=flat_files,
-                                               flat_dark=flat_dark, 
-                                               do_bcor=do_bcor)
+#fluxes, vars, bcors, mjds = rv.extract_spectra(files, rhea2_extract, 
+#                                              star_dark=star_dark, 
+#                                               flat_files=flat_files,
+#                                               flat_dark=flat_dark, 
+#                                               do_bcor=do_bcor,
+#                                               ra_dec_hr=True)
                                                      
 # Save spectra (Make sure to save "wave" generated from rhea2_format)
-rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
+#rv.save_fluxes(files, fluxes, vars, bcors, wave, mjds, out_path)                                                     
 
 # OPTION 2: Load previously extracted spectra
-#fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
+fluxes, vars, wave, bcors, mjds = rv.load_fluxes(extracted_files)
 
 #===============================================================================
 # Create and save/import reference spectrum
@@ -124,8 +125,8 @@ rv.save_ref_spect(files[:n], ref_spect, vars[:n,:,:], wave_ref, bcors[:n],
 # Calculate, save and plot radial velocities
 #===============================================================================
 # Calculate RVs
-rvs, rv_sigs = rv.calculate_rv_shift(wave_ref, ref_spect, fluxes, vars, bcors, 
-                                     wave)  
+rvs, rv_sigs, fitted = rv.calculate_rv_shift(wave_ref, ref_spect, fluxes, vars, bcors, 
+                                     wave, return_fitted_spects=True)  
 
 nf = fluxes.shape[0]
 nm = fluxes.shape[1]
