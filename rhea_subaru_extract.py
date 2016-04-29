@@ -36,48 +36,18 @@ import matplotlib.cm as cm
 import pickle
 plt.ion()
 
-nowdir = "/Users/mireland/data/rhea_subaru/images/"
-star_file = nowdir + "20160219230424.fits"
-star_file = nowdir + "20160219232010.fits"
-#star_file = nowdir + "20160219232010.fits"
-
-dir = "/Users/mireland/data/rhea_subaru/160218/"
-all_files = glob.glob(dir + "2016021815*.fits")
-
-flat_file = all_files[53]
-arc_file = dir + '20160218160128.fits'
-bias_file = dir + '20160219172443.fits'
-
-#Low SNR...
-#bias_data = pyfits.getdata(nowdir + '20160221185317.fits')
-#star_data = pyfits.getdata(nowdir + '20160221201418.fits')
-
-star_files = glob.glob(nowdir + "20160220021*fits")
-
-dir = "/Users/mireland/data/rhea_subaru/160218/"
-
-dir = "/Users/mireland/data/rhea_subaru/160220/"
-
-dir = "/Users/mireland/data/rhea_subaru/160319/"
-
-all_files = glob.glob(dir + "Vega/*.fits")
+dir = "/priv/mulga1/mireland/rhea_subaru/160319/"
 
 flat_file = dir + "cal/20160319051706.fits"
 arc_file = dir + "cal/20160319051726.fits"
 bias_file = dir + "cal/20160319165134.fits"
 
-savefile = "vega1.pkl"
-star_files = all_files[:50]
+dir = "/priv/mulga1/mireland/rhea_subaru/brightest_files/"
 
-savefile = "vega2.pkl"
-star_files = all_files[50:100]
+star_files = glob.glob(dir + "*.fits")
+star_files.sort()
 
-savefile = "vega3.pkl"
-star_files = all_files[101:151]
-
-savefile = "arcturus1.pkl"
-star_files = all_files[101:151]
-
+savefile = "all.pkl"
 nstars = len(star_files)
 lenslet_ims = np.empty( (nstars,3,3) )
 xpos = np.empty( (nstars) )
@@ -120,8 +90,8 @@ plt.scatter(xpos,ypos,c=np.sum(np.sum(lenslet_ims,2),1),cmap=cm.gist_heat)
 fluxes = np.array(fluxes)
 pickle.dump((wave,fluxes,flat_flux,arc_flux,lenslet_ims,xpos,ypos), open(savefile, 'wb'))
 
-fluxes_norm = np.empty(fluxes.shape)
-for i in range(50): fluxes_norm[i] = (fluxes[i]+1.5e2)/flat_flux
+#fluxes_norm = np.empty(fluxes.shape)
+#for i in range(50): fluxes_norm[i] = (fluxes[i]+1.5e2)/flat_flux
 
-plt.plot(wave.T,np.sum(np.sum(fluxes_norm,axis=0),axis=2).T/12)
-plt.axis([7590,7690,0,1.2])
+#plt.plot(wave.T,np.sum(np.sum(fluxes_norm,axis=0),axis=2).T/12)
+#plt.axis([7590,7690,0,1.2])
