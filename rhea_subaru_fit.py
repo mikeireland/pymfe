@@ -42,6 +42,10 @@ flat_file = "/Users/mireland/data/rhea_subaru/images/20160216133507.fits"
 arc_file  = "/Users/mireland/data/rhea_subaru/images/20160217210647.fits"
 flat_file = "/Users/mireland/data/rhea_subaru/images/20160217210708.fits"
 
+#March 2016
+arc_file  = "/Users/mireland/data/rhea_subaru/"
+flat_file = "/Users/mireland/data/rhea_subaru/"
+
 
 rhea2_format = pymfe.rhea.Format(spect='subaru')
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=True)

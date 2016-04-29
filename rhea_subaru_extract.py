@@ -33,6 +33,7 @@ from astropy import units as u
 import PyAstronomy.pyasl as pyasl
 from astropy import constants as const
 import matplotlib.cm as cm
+import pickle
 plt.ion()
 
 nowdir = "/Users/mireland/data/rhea_subaru/images/"
@@ -57,11 +58,25 @@ dir = "/Users/mireland/data/rhea_subaru/160218/"
 
 dir = "/Users/mireland/data/rhea_subaru/160220/"
 
-all_files = glob.glob(dir + "*.fits")
-flat_file = all_files[17]
-arc_file = all_files[16]
-star_files = all_files[11:16]
-dark_files = all_files[41:46]
+dir = "/Users/mireland/data/rhea_subaru/160319/"
+
+all_files = glob.glob(dir + "Vega/*.fits")
+
+flat_file = dir + "cal/20160319051706.fits"
+arc_file = dir + "cal/20160319051726.fits"
+bias_file = dir + "cal/20160319165134.fits"
+
+savefile = "vega1.pkl"
+star_files = all_files[:50]
+
+savefile = "vega2.pkl"
+star_files = all_files[50:100]
+
+savefile = "vega3.pkl"
+star_files = all_files[101:151]
+
+savefile = "arcturus1.pkl"
+star_files = all_files[101:151]
 
 nstars = len(star_files)
 lenslet_ims = np.empty( (nstars,3,3) )
@@ -81,7 +96,7 @@ flat_data -= bias_data
 arc_data -= bias_data
 
 flat_flux,flat_var = rhea2_extract.one_d_extract(data=flat_data.T, rnoise=20.0)
-#arc_flux,arc_var = rhea2_extract.one_d_extract(data=arc_data.T, rnoise=20.0)
+arc_flux,arc_var = rhea2_extract.one_d_extract(data=arc_data.T, rnoise=20.0)
 fluxes = []
 
 for i in range(nstars):
@@ -102,4 +117,11 @@ for i in range(nstars):
 
 plt.clf()
 plt.scatter(xpos,ypos,c=np.sum(np.sum(lenslet_ims,2),1),cmap=cm.gist_heat)
-    
+fluxes = np.array(fluxes)
+pickle.dump((wave,fluxes,flat_flux,arc_flux,lenslet_ims,xpos,ypos), open(savefile, 'wb'))
+
+fluxes_norm = np.empty(fluxes.shape)
+for i in range(50): fluxes_norm[i] = (fluxes[i]+1.5e2)/flat_flux
+
+plt.plot(wave.T,np.sum(np.sum(fluxes_norm,axis=0),axis=2).T/12)
+plt.axis([7590,7690,0,1.2])
