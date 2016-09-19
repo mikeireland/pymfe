@@ -33,7 +33,7 @@ class Format():
     
     """
     
-    def __init__(self,spect='rhea2',mode="single"):
+    def __init__(self,spect='rhea2',mode="single",m_min=None,m_max=None):
         self.spect=spect
         if (spect == 'rhea2'):
             self.szy   = 2200
@@ -50,6 +50,10 @@ class Format():
             self.xbin = 1
             self.m_min = 68
             self.m_max = 96
+            if m_min:
+                self.m_min = m_min
+            if m_max:
+                self.m_max = m_max
             self.m_ref = 82
             self.extra_rot = 1.0
             self.transpose = True
@@ -325,12 +329,27 @@ class Format():
 
         return old_x+the_shift
         
-    def fit_x_to_image(self, image, outdir='./', decrease_dim=10, search_pix=20, xdeg=4):
+    def fit_x_to_image(self, image, decrease_dim=10, search_pix=20, xdeg=4):
         """Fit a "tramline" map. Note that an initial map has to be pretty close, 
-        i.e. within "search_pix" everywhere. """
+        i.e. within "search_pix" everywhere. To get within search_pix everywhere, 
+        a simple model with a few paramers is fitted manually. This could be with a
+        GUI.
+        
+        Parameters
+        ----------
+        image: numpy array
+            The image of a single reference fiber to fit to.
+        decrease_dim: int
+            Median filter by this amount in the dispersion direction and decrease the 
+            dimensionality of the problem accordingly. This helps with both speed and
+            robustness.
+        search_pix: int
+            Search within this many pixels of the initial model.
+        """
         xx,wave,blaze=self.spectral_format()
         xs = self.adjust_x(xx,image)
-#        the_shift = xx_new[0]-xx[0]
+        
+        #Median-filter in the dispersion direction.
         image_med = image.reshape( (image.shape[0]//decrease_dim,decrease_dim,image.shape[1]) )
         image_med = np.median(image_med,axis=1)
         my = np.meshgrid(np.arange(xx.shape[1]), np.arange(xx.shape[0]) + self.m_min)

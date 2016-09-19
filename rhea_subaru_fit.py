@@ -46,13 +46,17 @@ flat_file = "/Users/mireland/data/rhea_subaru/images/20160217210708.fits"
 arc_file  = "/Users/mireland/data/rhea_subaru/"
 flat_file = "/Users/mireland/data/rhea_subaru/"
 
+#September 2016
+flat_file = "/Users/mireland/data/rhea_subaru/160917/cal_fiber_explore/20160916183812.fits"
+arc_file = "/Users/mireland/data/rhea_subaru/160918/20160918042323.fits"
 
-rhea2_format = pymfe.rhea.Format(spect='subaru')
+
+rhea2_format = pymfe.rhea.Format(spect='subaru', m_min=67, m_max=95)
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=True)
 xx, wave, blaze = rhea2_format.spectral_format()
 
-flat_data = pyfits.getdata(flat_file)
-arc_data = pyfits.getdata(arc_file)
+flat_data = pyfits.getdata(flat_file).astype(float)
+arc_data = pyfits.getdata(arc_file).astype(float)
 
 flat_data -= np.median(flat_data)
 arc_data -= np.median(arc_data)
@@ -64,7 +68,9 @@ flat_flux,flat_var = rhea2_extract.one_d_extract(data=flat_data.T, rnoise=20.0)
 arc_flux,arc_var = rhea2_extract.one_d_extract(data=arc_data.T, rnoise=20.0)
 
 #First, examine the flat file and find the correct order by identifying the key arc line
-#at 7032 Angstroms.
+#at 7032 Angstroms. We then have a starting point that can be used for subsequent
+#fitting for both the xmod and the wavemod.
+
 data_to_show = arc_data - 0.03*flat_data
 plt.clf()
 plt.imshow( np.arcsinh( (data_to_show-np.median(data_to_show))/1e2) , interpolation='nearest', aspect='auto', cmap=cm.gray)
@@ -77,7 +83,6 @@ xpix = xy[0][1]
 ref_wave = 7032.4131
 
 #Now, tweak the xmod and check that the flat really works.
-
 #The reference line is order 82
 m_ix = 81-rhea2_format.m_min
 model_ref_y = np.interp(ref_wave, wave[m_ix],np.arange(ny))
@@ -95,19 +100,18 @@ wavemod = np.loadtxt('data/subaru/wavemod.txt')
 wavemod[-1,-1] += ref_wave - model_ref_wave
 np.savetxt('data/subaru/wavemod.txt',wavemod,fmt='%.6e')
 
-
-#Reload and plot...
+#Reload and plot... Note that this uses the *new* wavemod and xmod files.
 xx, wave, blaze = rhea2_format.spectral_format()
 plt.plot(xx.T + nx//2,'b')
 
 print("Press <Enter> to continue... (Ctrl-C if a problem!)")
 dummy = raw_input()
 
-#Re-fit
+#Re-fit, First the flats...
 rhea2_format.fit_x_to_image(flat_data.T)
 shutil.copyfile('xmod.txt', 'data/subaru/xmod.txt')
 
-#Now find the other lines, after first re-loading into the extractor.
+#Now find the arc lines, after first re-loading into the extractor.
 rhea2_extract = pymfe.Extractor(rhea2_format, transpose_data=True)
 rhea2_extract.find_lines(arc_data.T, arcfile='data/subaru/neon.txt',flat_data=flat_data.T)
 #cp arclines.txt data/subaru/

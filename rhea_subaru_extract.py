@@ -37,17 +37,27 @@ import pickle
 plt.ion()
 
 dir = "/priv/mulga1/mireland/rhea_subaru/160319/"
-
 flat_file = dir + "cal/20160319051706.fits"
 arc_file = dir + "cal/20160319051726.fits"
 bias_file = dir + "cal/20160319165134.fits"
-
 dir = "/priv/mulga1/mireland/rhea_subaru/brightest_files/"
+
+dir = "/Users/mireland/data/rhea_subaru/160917/cal_all_fibers/"
+flat_file = dir + "20160916191322.fits"
+dir = "/Users/mireland/data/rhea_subaru/160918/"
+arc_file = dir + "20160918042323.fits"
+bias_file = dir + "20160918025519.fits"
+
+dir = "/Users/mireland/data/rhea_subaru/160918/alfori2/"
+savefile = "alfori2_all.pkl"
+
+dir = "/Users/mireland/data/rhea_subaru/160918/alfori1/"
+savefile = "alfori1_all.pkl"
+
 
 star_files = glob.glob(dir + "*.fits")
 star_files.sort()
 
-savefile = "all.pkl"
 nstars = len(star_files)
 lenslet_ims = np.empty( (nstars,3,3) )
 xpos = np.empty( (nstars) )
