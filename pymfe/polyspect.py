@@ -324,7 +324,9 @@ class Polyspect(object):
         ys = np.average(ys.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
         xs = np.average(xs.reshape(xs.shape[0], xs.shape[1]//decrease_dim,decrease_dim),axis=2)
         
-        #Now go through and find the peak pixel values. TODO: find a sub-pixel peak.
+        # Now go through and find the peak pixel values. TODO: find a sub-pixel peak and 
+        # fit to a model cross-correlation rather than just the peak (i.e. for multiple 
+        # fibers)
         for i in range(xs.shape[0]): #Go through each order...
             for j in range(xs.shape[1]):
                 xi = int(np.round(xs[i,j]))
