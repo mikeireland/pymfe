@@ -25,12 +25,13 @@ import matplotlib.cm as cm
 import optics
 import os
 import pdb
+from polyspect import Polyspect
 try:
     import pyfits
 except:
     import astropy.io.fits as pyfits
 
-class Arm():
+class Arm(Polyspect):
     """A class for each arm of the spectrograph. The initialisation function takes a 
     series of strings representing the configuration. For GHOST, it can be "red" or "blue" 
     for the first string, and "std" or "high" for the second string. """
@@ -64,7 +65,7 @@ class Arm():
         elif (arm == 'blue'):
             self.extra_rot = 2.0   #Additional slit rotation accross an order needed to match Zemax.
             self.szx = 4096
-            self.szy = 4096
+            self.szy = 4112
             self.f_cam = 264.0
             self.px_sz = 15e-3
             self.d_x = 1000/1137.   #VPH line spacing
