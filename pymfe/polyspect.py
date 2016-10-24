@@ -63,7 +63,7 @@ class Polyspect(object):
         self.rnoise = 20.0
         self.gain=0.3 #Gain in electrons per DN. 
         ## Some slit parameters...
-        self.mode       = mode
+        self.mode = mode
         if (mode=="single"):
             self.nl         = 1
             self.im_slit_sz = 64            #Number of pixels for a simulated slit image
@@ -104,9 +104,9 @@ class Polyspect(object):
         return wave_mod - waves
         
     def read_lines_and_fit(self, init_mod_file='', pixdir='',outdir='./', ydeg=3, xdeg=3, residfile='resid.txt'):
-        """Read in a series of text files that have a (Wavelength, pixel) format and file names
+        """Read in a series of text files that have a (Wavelength, pixel) format in file names
         like order99.txt and order100.txt. Fit an nth order polynomial to the wavelength
-        as a function of pixel value.
+        as a function of pixel value. 
         
         The functional form is:
             wave = p0(m) + p1(m)*yp + p2(m)*yp**2 + ...)
@@ -171,8 +171,9 @@ class Polyspect(object):
             outf.write("\n")
         outf.close()
         
-    def spectral_format(self,xoff=0.0,yoff=0.0,ccd_centre={},imgfile = None):
-        """Create a spectrum, with wavelengths sampled in 2 orders.
+    def spectral_format(self,xoff=0.0,yoff=0.0,ccd_centre={},wparams=None,xparams=None,imgfile = None):
+        """Create a spectrum, with wavelengths sampled in 2 orders based on
+           a pre-existing wavelength and x position polynomial model.
         
         Parameters
         ----------
@@ -183,9 +184,13 @@ class Polyspect(object):
             An input offset from the field center in the slit plane in
             mm in the y (spectral) direction.
         ccd_centre: dict
-            An input describing internal parameters for the angle of the center of the 
-            CCD. To run this program multiple times with the same co-ordinate system, 
-            take the returned ccd_centre and use it as an input.
+            An input describing internal parameters for the angle of 
+            the center of the CCD. To run this program multiple times 
+            with the same co-ordinate system, take the returned 
+            ccd_centre and use it as an input.
+        imgfile: string (optional)
+            String containing a file name for an image. This function 
+            uses this image and over plots the created spectrum.
             
         Returns
         -------
@@ -219,8 +224,10 @@ class Polyspect(object):
         blaze_int = np.zeros((nm,self.szy) )
         
         ## Should be an option here to get files from a different directory.
-        wparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/wavemod.txt'))
-        xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/xmod.txt'))
+        if not wparams:
+            wparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/wavemod.txt'))
+        if not xparams:
+            xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/xmod.txt'))
         
         ys = np.arange(self.szy)
         ## Loop through m 
@@ -358,7 +365,7 @@ class Polyspect(object):
         """
         if len(init_mod_file)==0:
             params0 = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/xmod.txt'))
-          
+        
         #Create an array of y and m values.
         xs = x_to_fit.copy()
         my = np.meshgrid(np.arange(xs.shape[1]), np.arange(xs.shape[0]) + self.m_min)
