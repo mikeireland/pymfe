@@ -437,7 +437,7 @@ class Polyspect(object):
         return x,w,b,matrices
 
 
-    def find_tramlines(self, flatfield=None, mod_slit=None):
+    def find_tramlines(self, flatfield=None, mode='std'):
         """Function that takes a flat field image and a slit profile and 
            convolves the two in 2D. It then finds the maxima of the convolution
            in each order as an estimate of the tram lines.
@@ -446,9 +446,8 @@ class Polyspect(object):
         ----------
         flatimage: string
             A file name containing a flat field image from the spectrograph
-        mod_slit: float array
-            A 1D profile of the slit to be convoluted with the orders on the
-            flat field
+        mode: string
+            Either 'std' of 'high'. This will inform on the order profile.
 
         Returns
         -------
@@ -458,6 +457,28 @@ class Polyspect(object):
         """
         #Grab the flat field data
         flat=pyfits.getdata(flatfield)
+        
+        #At this point create a slit profile
+        #Create a x baseline for convolution and assume a FWHM for profile
+        x=flat.shape[0]
+        profilex = np.arange(x) - x//2
+        sigma=1.1
+        #This is the fiber centre separation in pixels. MAY NEED TO BE ADJUSTED
+        #DEPENDING ON MODE! 
+        fiber_separation=3.97
+        #Now create a model of the slit profile
+        mod_slit = np.zeros(x)
+        if mode=='std':
+            nfibers=17
+        elif mode=='high':
+            nfibers=26
+        else:
+            print('Unknown mode')
+            raise UserWarning
+            
+        for i in range(-nfibers//2,nfibers//2):
+            mod_slit +=  np.exp(-(profilex - i*fiber_separation)**2/2.0/sigma**2)
+
         #Normalise the slit model and fourier transform for convolution
         mod_slit /= np.sum(mod_slit)
         mod_slit_ft = np.fft.rfft(np.fft.fftshift(mod_slit))
@@ -471,43 +492,3 @@ class Polyspect(object):
         return flat_conv
 
 
-    def create_slit_profile(self, mode='std' ):
-        """Function that takes returns a suitable input for the 
-           find_tramlines function for a given mode assuming
-           default parameters for the slit profile.
-
-        Parameters
-        ----------
-        psf: float array (optional)
-            1D array containing a profile for a single fiber
-        mode: string
-            Either 'std' of 'high'. This will inform on the order profile.
-        
-        Returns
-        -------
-        slitprofile: float array
-            1D profile of entire slit for use with find_tramlines
-        """
-        #Create a x baseline for convolution and assume a FWHM for profile
-        profilex = np.arange(self.szx) - self.szx//2
-        sigma=1.1
-        #This is the fiber centre separation in pixels. MAY NEED TO BE ADJUSTED
-        #DEPENDING ON MODE! 
-        fiber_separation=3.97
-        #Now create a model of the slit profile
-        mod_slit = np.zeros(self.szx)
-        if mode=='std':
-            nfibers=17
-        elif mode=='high':
-            nfibers=26
-        else:
-            print('Unknown mode')
-            raise UserWarning
-            
-        for i in range(-nfibers//2,nfibers//2):
-            mod_slit +=  np.exp(-(profilex - i*fiber_separation)**2/2.0/sigma**2)
-        return mod_slit
-
-
-    
-                
