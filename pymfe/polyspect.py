@@ -221,16 +221,16 @@ class Polyspect(object):
         blaze_int = np.zeros((nm,self.szy) )
         
         ## Should be an option here to get files from a different directory.
-        if not wparams:
+        if wparams is None:
             wparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/wavemod.txt'))
-        if not xparams:
+        if xparams is None:
             xparams = np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)),'../data/'+self.spect+'/xmod.txt'))
         
         ys = np.arange(self.szy)
         ## Loop through m 
         for m in np.arange(self.m_min,self.m_max+1):
             #First, sort out the wavelengths
-            mp = self.m_ref/m - 1
+            mp = self.m_max//2/m - 1
             
             #Find the polynomial coefficients for each order.
             ydeg = wparams.shape[0] - 1
