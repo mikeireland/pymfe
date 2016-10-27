@@ -437,22 +437,22 @@ class Polyspect(object):
         return x,w,b,matrices
 
 
-    def find_tramlines(self, flatfield=None, mode='std'):
+    def slit_flat_convolve(self, flatfield=None, mode='ghoststd'):
         """Function that takes a flat field image and a slit profile and 
-           convolves the two in 2D. It then finds the maxima of the convolution
-           in each order as an estimate of the tram lines.
+           convolves the two in 2D. Returns result of convolution, which 
+           should be used for tramline fitting. ONLY WORKS FOR GHOST.
 
         Parameters
         ----------
         flatimage: string
             A file name containing a flat field image from the spectrograph
         mode: string
-            Either 'std' of 'high'. This will inform on the order profile.
+            Either 'ghoststd' of 'ghosthigh'. This will inform on the order profile.
 
         Returns
         -------
         flat_conv: float array
-            Currently returns the convolved 2D array. SHOULD RETURN TRAMLINES! 
+            Currently returns the convolved 2D array. 
 
         """
         #Grab the flat field data
@@ -468,12 +468,12 @@ class Polyspect(object):
         fiber_separation=3.97
         #Now create a model of the slit profile
         mod_slit = np.zeros(x)
-        if mode=='std':
+        if mode=='ghoststd':
             nfibers=17
-        elif mode=='high':
+        elif mode=='ghosthigh':
             nfibers=26
         else:
-            print('Unknown mode')
+            print('Unknown mode. ONLY POSSIBLE WITH GHOST IMAGES AT THIS POINT')
             raise UserWarning
             
         for i in range(-nfibers//2,nfibers//2):
@@ -484,7 +484,7 @@ class Polyspect(object):
         mod_slit_ft = np.fft.rfft(np.fft.fftshift(mod_slit))
         #Fourier the flat for convolution
         im_fft = np.fft.rfft(flat,axis=0)
-        flat_conv = np.zeros_like(flat)
+        flat_conv = np.zeros_like(im_fft)
         #Now convolved in 2D
         for i in range(im_fft.shape[1]): 
             flat_conv[:,i]=im_fft[:,i]*mod_slit_ft
