@@ -31,8 +31,9 @@ xparams[0,4]=q20i
 x_int,wave_int,blaze_int=ghost.spectral_format(wparams=wparams,xparams=xparams)
 y=np.meshgrid(np.arange(data.shape[1]),np.arange(x_int.shape[0]))[0]
 #pdb.set_trace()
-l, = plt.plot(y.flatten()[::10], x_int.flatten()[::10], color='green', linestyle='None',marker='.' )
-#plt.axis([0, 1, -10, 
+l, = plt.plot(y.flatten()[::10], x_int.flatten()[::10], color='green',\
+    linestyle='None',marker='.' )
+
 
 plt.imshow(ghost.slit_flat_convolve(flatfield=datafile))
 #plt.imshow(data)
@@ -82,7 +83,7 @@ sq20.on_changed(update)
 # button.on_clicked(reset)
 
 """THINGS TO ADD: 
-
+-All outputs of each procedure must be fits files, including the polynomial fit parameters. 
 -Reset button
 -Submit Button (and file export)
 -Reset reference to middle of the frame instead of bottom
