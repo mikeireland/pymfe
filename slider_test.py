@@ -73,18 +73,16 @@ sq10.on_changed(update)
 sq11.on_changed(update)
 sq20.on_changed(update)
 
-#resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
-#button = Button(resetax, 'Reset', color=axcolor, hovercolor='0.975')
+resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
+button = Button(resetax, 'Submit', color=axcolor, hovercolor='0.975')
 
 
-# def reset(event):
-#     sq00.reset()
-#     sq01.reset()
-# button.on_clicked(reset)
+def submit(event):
+    np.savetxt('data/ghost/xmod.txt',xparams,fmt='%.4e')
+button.on_clicked(submit)
 
 """THINGS TO ADD: 
 -All outputs of each procedure must be fits files, including the polynomial fit parameters. 
--Reset button
 -Submit Button (and file export)
 -Reset reference to middle of the frame instead of bottom
 -A fit button? 

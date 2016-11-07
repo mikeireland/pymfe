@@ -37,6 +37,7 @@ class Arm(Polyspect):
     for the first string, and "std" or "high" for the second string. """
     
     def __init__(self,arm, mode='high'):
+        self.spect='ghost'
         self.arm=arm
         self.d = 1000/52.67   #Distance in microns
         self.theta= 65.0      #Blaze angle

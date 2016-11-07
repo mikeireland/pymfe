@@ -33,7 +33,7 @@ flat_file = "/home/jbento/flat_blue.fits"
 
 
 #instantiate the ghostsim arm
-ghost_format = pyghost.ghostsim.Arm('blue')
+ghost_format = pymfe.ghost.Arm('blue',mode='std')
 #This function adds a few things to the ARm class that are needed in the Extractor.
 ghost_format.set_mode('std')
 
