@@ -88,18 +88,18 @@ class Polyspect(object):
             print("ms and ys must all be the same length!")
             raise UserWarning
         mp = self.m_ref/ms - 1
+        pdb.set_trace()
         ps = np.empty( (len(ms), ydeg+1) )
         #Find the polynomial coefficients for each order.
         for i in range(ydeg+1):
             polyq = np.poly1d(params[i,:])
             ps[:,i] = polyq(mp)
         wave_mod = np.empty( len(ms) ) 
-#        pdb.set_trace()
         for i in range(len(ms)):
             polyp = np.poly1d(ps[i,:])
             wave_mod[i] = polyp(ys[i]-self.szy/2)
         return wave_mod - waves
-        
+
     def read_lines_and_fit(self, init_mod_file='', pixdir='',outdir='./', ydeg=3, xdeg=3, residfile='resid.txt'):
         """Read in a series of text files that have a (Wavelength, pixel) format in file names
         like order99.txt and order100.txt. Fit an nth order polynomial to the wavelength
@@ -297,7 +297,7 @@ class Polyspect(object):
         
         #Based on the maximum cross-correlation, adjust the model x values.
         the_shift = np.argmax(xcorr) - num_xcorr//2
-
+        
         return old_x+the_shift
         
     def fit_x_to_image(self, image, decrease_dim=10, search_pix=20, xdeg=4):
@@ -319,7 +319,7 @@ class Polyspect(object):
         """
         xx,wave,blaze=self.spectral_format()
         xs = self.adjust_x(xx,image)
-        
+
         #Median-filter in the dispersion direction.
         image_med = image.reshape( (image.shape[0]//decrease_dim,decrease_dim,image.shape[1]) )
         image_med = np.median(image_med,axis=1)
@@ -330,13 +330,14 @@ class Polyspect(object):
         
         # Now go through and find the peak pixel values. TODO: find a sub-pixel peak and 
         # fit to a model cross-correlation rather than just the peak (i.e. for multiple 
-        # fibers)
+        # fibers). This is kind of done just by feeding the result of slit_flat_convolve 
+        # to this as the image
         for i in range(xs.shape[0]): #Go through each order...
             for j in range(xs.shape[1]):
                 xi = int(np.round(xs[i,j]))
                 peakpix = image_med[j,self.szx//2 + xi -search_pix:self.szx//2 + xi +search_pix+1]
                 xs[i,j] += np.argmax(peakpix) - search_pix
-                
+
         self.fit_to_x(xs,ys=ys,xdeg=xdeg)
         
     def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2, xdeg=4, ys=[], decrease_dim=1):
@@ -386,7 +387,7 @@ class Polyspect(object):
         bestp = op.leastsq(self.wave_fit_resid,params0,args=(ms, xs, ys,ydeg,xdeg))
         final_resid = self.wave_fit_resid(bestp[0], ms, xs, ys,ydeg=ydeg,xdeg=xdeg)
         params = bestp[0].reshape( (ydeg+1,xdeg+1) )
-
+        print(init_resid, final_resid)
         outf = open(outdir + "xmod.txt","w")
         for i in range(ydeg+1):
             for j in range(xdeg+1):
