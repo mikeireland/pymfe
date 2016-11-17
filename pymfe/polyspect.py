@@ -88,7 +88,7 @@ class Polyspect(object):
             print("ms and ys must all be the same length!")
             raise UserWarning
         mp = self.m_ref/ms - 1
-        pdb.set_trace()
+
         ps = np.empty( (len(ms), ydeg+1) )
         #Find the polynomial coefficients for each order.
         for i in range(ydeg+1):
@@ -97,7 +97,7 @@ class Polyspect(object):
         wave_mod = np.empty( len(ms) ) 
         for i in range(len(ms)):
             polyp = np.poly1d(ps[i,:])
-            wave_mod[i] = polyp(ys[i]-self.szy/2)
+            wave_mod[i] = polyp(ys[i]-self.szy//2)
         return wave_mod - waves
 
     def read_lines_and_fit(self, init_mod_file='', pixdir='',outdir='./', ydeg=3, xdeg=3, residfile='resid.txt'):
@@ -230,7 +230,7 @@ class Polyspect(object):
         ## Loop through m 
         for m in np.arange(self.m_min,self.m_max+1):
             #First, sort out the wavelengths
-            mp = self.m_max//2/m - 1
+            mp = self.m_ref/m - 1
             
             #Find the polynomial coefficients for each order.
             ydeg = wparams.shape[0] - 1
@@ -239,7 +239,7 @@ class Polyspect(object):
                 polyq = np.poly1d(wparams[i,:])
                 ps[i] = polyq(mp)
             polyp = np.poly1d(ps)      
-            wave_int[m - self.m_min,:] = polyp(ys - self.szy/2)
+            wave_int[m - self.m_min,:] = polyp(ys - self.szy//2)
             
             #Find the polynomial coefficients for each order.
             ydeg = xparams.shape[0] - 1
@@ -248,8 +248,8 @@ class Polyspect(object):
                 polyq = np.poly1d(xparams[i,:])
                 ps[i] = polyq(mp)
             polyp = np.poly1d(ps)      
-            x_int[m - self.m_min,:] = polyp(ys - self.szy/2)
-            
+            x_int[m - self.m_min,:] = polyp(ys - self.szy//2)
+            pdb.set_trace()
             #Finally, the blaze
             wcen = wave_int[m - self.m_min,self.szy/2]
             disp = wave_int[m - self.m_min,self.szy/2+1] - wcen

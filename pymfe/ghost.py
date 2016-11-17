@@ -63,6 +63,7 @@ class Arm(Polyspect):
             self.alpha2 = 0.0      #Second prism apex angle
             self.m_min = 34
             self.m_max = 67
+            self.m_ref = 50 
         elif (arm == 'blue'):
             self.extra_rot = 2.0   #Additional slit rotation accross an order needed to match Zemax.
             self.szx = 4096
@@ -76,6 +77,7 @@ class Arm(Polyspect):
             self.alpha2 = 0.0      #Second prism apex angle
             self.m_min = 63
             self.m_max = 95
+            self.m_ref = 80
         else:
             print("Unknown spectrograph arm!")
             raise UserWarning
