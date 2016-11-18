@@ -1,10 +1,13 @@
-"""This is a simple simulation code for GHOST or Veloce, with a class ARM that simulates
-a single arm of the instrument. The key default parameters are hardwired for each named 
-configuration in the __init__ function of ARM. 
+"""This is a simple simulation code for GHOST or Veloce,
+with a class ARM that simulates
+a single arm of the instrument. The key default parameters
+are hardwired for each named
+configuration in the __init__ function of ARM.
 
-Note that in this simulation code, the 'x' and 'y' directions are the along-slit and 
-dispersion directions respectively... (similar to physical axes) but by convention, 
-images are returned/displayed with a vertical slit and a horizontal dispersion direction.
+Note that in this simulation code, the 'x' and 'y' directions are the
+along-slit and dispersion directions respectively...
+(similar to physical axes) but by convention, images are returned/displayed
+ with a vertical slit and a horizontal dispersion direction.
 
 For a simple simulation, run:
 
@@ -14,7 +17,7 @@ blue = pymfe.ghost.Arm('blue')
 
 blue.simulate_frame()
 
-TODO: 
+TODO:
 1) Add spectrograph aberrations (just focus and coma)
 2) Add pupil illumination plus aberrations.
 """
@@ -33,13 +36,15 @@ except:
 
 
 class Arm(Polyspect):
-    """A class for each arm of the spectrograph. The initialisation function takes a 
-    series of strings representing the configuration. For GHOST, it can be "red" or "blue" 
-    for the first string, and "std" or "high" for the second string. """
+    """A class for each arm of the spectrograph. The initialisation
+    function takes a series of strings representing the configuration.
+    For GHOST, it can be "red" or "blue"
+    for the first string, and "std" or "high" for the second string.
+    """
 
     def __init__(self, arm='blue', mode='std'):
         """Initialisation function that sets all the mode specific parameters
-        related to each configuration of the spectrograph. 
+        related to each configuration of the spectrograph.
         """
         self.spect = 'ghost'
         self.arm = arm
@@ -51,8 +56,10 @@ class Arm(Polyspect):
         self.f_col = 1750.6  # Collimator focal length.
         self.lenslet_high_size = 118.0  # Lenslet flat-to-flat in microns
         self.lenslet_std_size = 197.0  # Lenslet flat-to-flat in microns
-        self.microns_pix = 2.0  # When simulating the slit image, use this many microns per pixel
-        self.microns_arcsec = 400.0  # Number of microns in the slit image plane per arcsec
+        # When simulating the slit image, use this many microns per pixel
+        self.microns_pix = 2.0
+        # Number of microns in the slit image plane per arcsec
+        self.microns_arcsec = 400.0
         self.im_slit_sz = 2048  # Size of the image slit size in pixels.
         if (arm == 'red'):
             # Additional slit rotation across an order needed to match Zemax.
@@ -123,11 +130,12 @@ class Arm(Polyspect):
             Flux in each lenslet
 
         mode: string (optional)
-            'high' or 'std', i.e. the resolving power mode of the spectrograph. Either
-            mode or fluxes must be set.
+            'high' or 'std', i.e. the resolving power mode of the spectrograph.
+            Either mode or fluxes must be set.
 
         seeing: float (optional)
-            If fluxes is not given, then the flux in each lenslet is defined by the seeing.
+            If fluxes is not given, then the flux in each lenslet is defined
+            by the seeing.
 
         llet_offset: int
             Offset in lenslets to apply to the input spectrum"""
@@ -137,18 +145,23 @@ class Arm(Polyspect):
         fillfact = 0.98
         s32 = np.sqrt(3) / 2
         hex_scale = 1.15
-        conv_fwhm = 30.0  # equivalent to a 1 degree FWHM for an f/3 input ??? !!! Double-check !!!
+        # equivalent to a 1 degree FWHM for an f/3 input ???
+        conv_fwhm = 30.0
 
         if self.mode == 'std':
             yoffset = (self.lenslet_width / self.microns_pix / hex_scale *
                        np.array([0, -s32, s32, 0, -s32, s32, 0])).astype(int)
-            xoffset = (self.lenslet_width / self.microns_pix / hex_scale *
-                       np.array([-1, -0.5, -0.5, 0, 0.5, 0.5, 1.0])).astype(int)
+            xoffset = (self.lenslet_width / self.microns_pix /
+                       hex_scale * np.array([-1, -0.5, -0.5, 0,
+                                             0.5, 0.5, 1.0])).astype(int)
         elif self.mode == 'high':
-            yoffset = (self.lenslet_width / self.microns_pix / hex_scale * s32 * np.array(
-                [-2, 2, -2, -1, -1, 0, -1, -1, 0, 0, 0, 1, 1, 0, 1, 1, 2, -2, 2])).astype(int)
-            xoffset = (self.lenslet_width / self.microns_pix / hex_scale * 0.5 * np.array(
-                [-2, 0, 2, -3, 3, -4, -1, 1, -2, 0, 2, -1, 1, 4, -3, 3, -2, 0, 2])).astype(int)
+            yoffset = (self.lenslet_width / self.microns_pix /
+                       hex_scale * s32 *
+                       np.array([-2, 2, -2, -1, -1, 0, -1, -1, 0, 0, 0,
+                                 1, 1, 0, 1, 1, 2, -2, 2])).astype(int)
+            xoffset = (self.lenslet_width / self.microns_pix / hex_scale *
+                       0.5 * np.array([-2, 0, 2, -3, 3, -4, -1, 1, -2, 0, 2,
+                                       -1, 1, 4, -3, 3, -2, 0, 2])).astype(int)
         else:
             print("Error: mode must be standard or high")
 
@@ -184,19 +197,20 @@ class Arm(Polyspect):
         h[:, szx / 2 - szy / 2:szx / 2 + szy / 2] = h_cutout
         hbig[:, szx / 2 - szy / 2:szx / 2 + szy / 2] = hbig_cutout
         if len(fluxes) != 0:
-            # If we're not simulating seeing, the image-plane is uniform, and we only use
-            # the values of "fluxes" to scale the lenslet fluxes.
+            # If we're not simulating seeing, the image-plane is uniform, and
+            # we only use the values of "fluxes" to scale the lenslet fluxes.
             im = np.ones((szy, szx))
-            # Set the offsets to zero because we may be simulating e.g. a single Th/Ar lenslet
-            # and not starlight (from the default xoffset etc)
+            # Set the offsets to zero because we may be simulating a single
+            # Th/Ar lenslet and not starlight (from the default xoffset etc)
             xoffset = np.zeros(len(fluxes), dtype=int)
             yoffset = np.zeros(len(fluxes), dtype=int)
         else:
-            # If we're simulating seeing, create a Moffat function as our input profile,
-            # but just make the lenslet fluxes uniform.
+            # If we're simulating seeing, create a Moffat function as our input
+            # profile,but just make the lenslet fluxes uniform.
             im = np.zeros((szy, szx))
             im_cutout = optics.moffat2d(
-                szy, seeing * self.microns_arcsec / self.microns_pix / 2, beta=4.0)
+                szy, seeing * self.microns_arcsec / self.microns_pix / 2,
+                beta=4.0)
             im[:, szx / 2 - szy / 2:szx / 2 + szy / 2] = im_cutout
             fluxes = np.ones(len(xoffset))
 
@@ -206,7 +220,8 @@ class Arm(Polyspect):
             im_cutout = np.roll(
                 np.roll(im, yoffset[i], axis=0), xoffset[i], axis=1) * h
             im_cutout = im_cutout[szy / 2 - cutout_hw:szy / 2 +
-                                  cutout_hw, szx / 2 - cutout_hw:szx / 2 + cutout_hw]
+                                  cutout_hw, szx / 2 - cutout_hw:szx /
+                                  2 + cutout_hw]
             prof = optics.azimuthalAverage(
                 im_cutout, returnradii=True, binsize=1)
             prof = (prof[0], prof[1] * fluxes[i])
@@ -215,9 +230,11 @@ class Arm(Polyspect):
             im_one[wr] = np.interp(r[wr], xprof, yprof)
             im_one = np.fft.irfft2(np.fft.rfft2(im_one) * gft) * hbig
             im_one = np.fft.irfft2(np.fft.rfft2(im_one) * pix_ft)
-            #!!! The line below could add tilt offsets... important for PRV simulation !!!
-            #im_one = np.roll(np.roll(im_one, tilt_offsets[0,i], axis=1),tilt_offsets[1,i], axis=0)*hbig
-            the_shift = int((llet_offset + i - self.nl / 2.0)
-                            * lenslet_width / self.microns_pix)
+            # !!! The line below could add tilt offsets...
+            # important for PRV simulation !!!
+            # im_one = np.roll(np.roll(im_one, tilt_offsets[0,i], axis=1),
+            # tilt_offsets[1,i], axis=0)*hbig
+            the_shift = int((llet_offset + i - self.nl / 2.0) *
+                            lenslet_width / self.microns_pix)
             im_slit += np.roll(im_one, the_shift, axis=1)
         return im_slit

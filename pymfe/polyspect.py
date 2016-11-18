@@ -1,5 +1,5 @@
-"""This is a simple simulation and extraction definition code for RHEA. 
-The key is to use Tobias's spectral fitting parameters and define 
+"""This is a simple simulation and extraction definition code for RHEA.
+The key is to use Tobias's spectral fitting parameters and define
 the same kinds of extraction arrays as pyghost.
 """
 from __future__ import division, print_function
@@ -16,14 +16,14 @@ import astropy.io.fits as pyfits
 
 
 class Polyspect(object):
-    """A class containing tools common for any spectrograph. 
+    """A class containing tools common for any spectrograph.
     This class should be inhereted by the specific spectrograph module.
     Contains functions related to polynomial modelling of spectrograph orders.
     """
 
     def wave_fit_resid(self, params, ms, waves, ys, ydeg=3, xdeg=3):
         """A fit function for read_lines_and_fit (see that function for details)
-        to be used in scipy.optimize.leastsq. The same function is used in 
+        to be used in scipy.optimize.leastsq. The same function is used in
         fit_to_x, but in that case "waves" is replaced by "xs".
         """
         if np.prod(params.shape) != (xdeg + 1) * (ydeg + 1):
@@ -49,9 +49,9 @@ class Polyspect(object):
     def read_lines_and_fit(self, init_mod_file='', pixdir='',
                            outdir='./', ydeg=3, xdeg=3, residfile='resid.txt'):
         """Read in a series of text files that have a (Wavelength, pixel)
-        format in file names like order99.txt and order100.txt. 
-        Fit an nth order polynomial to the wavelength as a function 
-        of pixel value. 
+        format in file names like order99.txt and order100.txt.
+        Fit an nth order polynomial to the wavelength as a function
+        of pixel value.
 
         The functional form is:
             wave = p0(m) + p1(m)*yp + p2(m)*yp**2 + ...)
@@ -64,8 +64,8 @@ class Polyspect(object):
         This means that the simplest spectrograph model should have:
         q00 : central wavelength or order m_ref
         q01: central wavelength or order m_ref
-        q10: central_wavelength/R_pix, with R_pix the resolving power per pixel.
-        q11: central_wavelength/R_pix, with R_pix the resolving power per pixel.
+        q10: central_wavelength/R_pix, with R_pix the resolving power / pixel.
+        q11: central_wavelength/R_pix, with R_pix the resolving power / pixel.
         ... with everything else approximately zero.
 
         Parameters
@@ -73,7 +73,7 @@ class Polyspect(object):
         xdeg, ydeg: int
             Order of polynomial
         dir: string
-            Directory. If none given, a fit to Tobias's default 
+            Directory. If none given, a fit to Tobias's default
             pixels in "data" is made."""
         if len(init_mod_file) == 0:
             params0 = np.loadtxt(os.path.join(os.path.dirname(
@@ -135,35 +135,35 @@ class Polyspect(object):
         Parameters
         ----------
         xoff: float
-            An input offset from the field center in the slit plane in 
+            An input offset from the field center in the slit plane in
             mm in the x (spatial) direction.
         yoff: float
             An input offset from the field center in the slit plane in
             mm in the y (spectral) direction.
         ccd_centre: dict
-            An input describing internal parameters for the angle of 
-            the center of the CCD. To run this program multiple times 
-            with the same co-ordinate system, take the returned 
+            An input describing internal parameters for the angle of
+            the center of the CCD. To run this program multiple times
+            with the same co-ordinate system, take the returned
             ccd_centre and use it as an input.
         imgfile: string (optional)
-            String containing a file name for an image. This function 
+            String containing a file name for an image. This function
             uses this image and over plots the created spectrum.
 
         Returns
         -------
         x:  (nm, ny) float array
             The x-direction pixel co-ordinate corresponding to each y-pixel and
-            each order (m).    
+            each order (m).
         wave: (nm, ny) float array
             The wavelength co-ordinate corresponding to each y-pixel and each
             order (m).
         blaze: (nm, ny) float array
-            The blaze function (pixel flux divided by order center flux) 
+            The blaze function (pixel flux divided by order center flux)
             corresponding to each y-pixel and each order (m).
         ccd_centre: dict
-            NOT YET IMPLEMENTED 
-            Parameters of the internal co-ordinate system describing the 
-            center of the CCD. 
+            NOT YET IMPLEMENTED
+            Parameters of the internal co-ordinate system describing the
+            center of the CCD.
 
 
         """
@@ -182,7 +182,8 @@ class Polyspect(object):
                 self.spect + '/wavemod.txt'))
         if xparams is None:
             xparams = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' + self.spect + '/xmod.txt'))
+                os.path.abspath(__file__)), '../data/' + self.spect +
+                                              '/xmod.txt'))
 
         ys = np.arange(self.szy)
         # Loop through m
@@ -229,9 +230,9 @@ class Polyspect(object):
         return x_int, wave_int, blaze_int
 
     def adjust_x(self, old_x, image, num_xcorr=21):
-        """Adjust the x pixel value based on an image and an initial 
-            array from spectral_format(). Only really designed for a 
-            single fiber flat or science image. This is a helper 
+        """Adjust the x pixel value based on an image and an initial
+            array from spectral_format(). Only really designed for a
+            single fiber flat or science image. This is a helper
             routine for fit_x_to_image.
 
         Parameters
@@ -245,18 +246,18 @@ class Polyspect(object):
         -------
         A new value of the x array.
         """
-        # Create an array with a single pixel with the value 1.0 at the expected
-        # peak of each order.
+        # Create an array with a single pixel with the value 1.0 at the
+        # expected peak of each order.
         single_pix_orders = np.zeros(image.shape)
         xy = np.meshgrid(np.arange(old_x.shape[0]), np.arange(old_x.shape[1]))
-        single_pix_orders[np.round(xy[1]).astype(int), np.round(old_x.T +
-                                                                self.szx // 2).astype(int)] = 1.0
+        single_pix_orders[np.round(xy[1]).astype(int),
+                          np.round(old_x.T + self.szx // 2).astype(int)] = 1.0
 
         # Make an array of cross-correlation values.
         xcorr = np.zeros(num_xcorr)
         for i in range(num_xcorr):
-            xcorr[i] = np.sum(np.roll(single_pix_orders, i - num_xcorr // 2, axis=1)
-                              * image)
+            xcorr[i] = np.sum(np.roll(single_pix_orders, i - num_xcorr // 2,
+                                      axis=1) * image)
 
         # Based on the maximum cross-correlation, adjust the model x values.
         the_shift = np.argmax(xcorr) - num_xcorr // 2
@@ -264,10 +265,10 @@ class Polyspect(object):
         return old_x + the_shift
 
     def fit_x_to_image(self, image, decrease_dim=10, search_pix=20, xdeg=4):
-        """Fit a "tramline" map. Note that an initial map has to be pretty close, 
-        i.e. within "search_pix" everywhere. To get within search_pix everywhere, 
-        a simple model with a few paramers is fitted manually. This can be done
-        with a GUI using the slider_adjust function.
+        """Fit a "tramline" map. Note that an initial map has to be pretty
+        close, i.e. within "search_pix" everywhere. To get within search_pix
+        everywhere, a simple model with a few paramers is fitted manually.
+        This can be done with a GUI using the slider_adjust function.
 
         Parameters
         ----------
@@ -275,7 +276,7 @@ class Polyspect(object):
             The image of a single reference fiber to fit to.
         decrease_dim: int
             Median filter by this amount in the dispersion direction and
-            decrease the dimensionality of the problem accordingly. 
+            decrease the dimensionality of the problem accordingly.
             This helps with both speed and robustness.
         search_pix: int
             Search within this many pixels of the initial model.
@@ -284,26 +285,24 @@ class Polyspect(object):
         xs = self.adjust_x(xx, image)
 
         # Median-filter in the dispersion direction.
-        image_med = image.reshape((image.shape[0] // decrease_dim, decrease_dim,
-                                   image.shape[1]))
+        image_med = image.reshape((image.shape[0] // decrease_dim,
+                                   decrease_dim, image.shape[1]))
         image_med = np.median(image_med, axis=1)
-        my = np.meshgrid(np.arange(xx.shape[1]), np.arange(xx.shape[0])
-                         + self.m_min)
+        my = np.meshgrid(np.arange(xx.shape[1]), np.arange(xx.shape[0]) +
+                         self.m_min)
         ys = my[0]
         ys = np.average(ys.reshape(xs.shape[0], xs.shape[1] // decrease_dim,
                                    decrease_dim), axis=2)
         xs = np.average(xs.reshape(xs.shape[0], xs.shape[1] // decrease_dim,
                                    decrease_dim), axis=2)
 
-        # Now go through and find the peak pixel values. TODO: find a sub-pixel peak and
-        # fit to a model cross-correlation rather than just the peak (i.e. for multiple
-        # fibers). This is kind of done just by feeding the result of slit_flat_convolve
-        # to this as the image
+        # Now go through and find the peak pixel values.
         for i in range(xs.shape[0]):  # Go through each order...
             for j in range(xs.shape[1]):
                 xi = int(np.round(xs[i, j]))
-                peakpix = image_med[j, self.szx // 2 + xi - search_pix:self.szx // 2
-                                    + xi + search_pix + 1]
+                peakpix = image_med[j, self.szx // 2 + xi -
+                                    search_pix:self.szx // 2 +
+                                    xi + search_pix + 1]
                 xs[i, j] += np.argmax(peakpix) - search_pix
 
         self.fit_to_x(xs, ys=ys, xdeg=xdeg)
@@ -332,12 +331,13 @@ class Polyspect(object):
         """
         if len(init_mod_file) == 0:
             params0 = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' + self.spect + '/xmod.txt'))
+                os.path.abspath(__file__)), '../data/' + self.spect +
+                                              '/xmod.txt'))
 
         # Create an array of y and m values.
         xs = x_to_fit.copy()
-        my = np.meshgrid(np.arange(xs.shape[1]), np.arange(xs.shape[0])
-                         + self.m_min)
+        my = np.meshgrid(np.arange(xs.shape[1]), np.arange(xs.shape[0]) +
+                         self.m_min)
         if (len(ys) == 0):
             ys = my[0]
         ms = my[1]
@@ -346,10 +346,10 @@ class Polyspect(object):
         if (decrease_dim > 1):
             ms = np.average(ms.reshape(xs.shape[0], xs.shape[
                             1] // decrease_dim, decrease_dim), axis=2)
-            ys = np.average(ys.reshape(xs.shape[0], xs.shape[1] // decrease_dim,
-                                       decrease_dim), axis=2)
-            xs = np.average(xs.reshape(xs.shape[0], xs.shape[1] // decrease_dim,
-                                       decrease_dim), axis=2)
+            ys = np.average(ys.reshape(xs.shape[0], xs.shape[1] //
+                                       decrease_dim, decrease_dim), axis=2)
+            xs = np.average(xs.reshape(xs.shape[0], xs.shape[1] //
+                                       decrease_dim, decrease_dim), axis=2)
 
         # Flatten arrays
         ms = ms.flatten()
@@ -373,22 +373,22 @@ class Polyspect(object):
         outf.close()
 
     def spectral_format_with_matrix(self):
-        """Create a spectral format, including a detector to slit matrix at 
+        """Create a spectral format, including a detector to slit matrix at
            every point.
 
         Returns
         -------
         x: (nm, ny) float array
-            The x-direction pixel co-ordinate corresponding to each y-pixel 
-            and each order (m).    
+            The x-direction pixel co-ordinate corresponding to each y-pixel
+            and each order (m).
         w: (nm, ny) float array
             The wavelength co-ordinate corresponding to each y-pixel and each
             order (m).
         blaze: (nm, ny) float array
-            The blaze function (pixel flux divided by order center flux) 
+            The blaze function (pixel flux divided by order center flux)
             corresponding to each y-pixel and each order (m).
         matrices: (nm, ny, 2, 2) float array
-            2x2 slit rotation matrices, mapping output co-ordinates back 
+            2x2 slit rotation matrices, mapping output co-ordinates back
             to the slit.
         """
         x, w, b = self.spectral_format()
@@ -399,9 +399,9 @@ class Polyspect(object):
             for j in range(x.shape[1]):
                 # Create a matrix where we map input angles to output
                 # coordinates.
-                slit_microns_per_det_pix = self.slit_microns_per_det_pix_first \
-                    + float(i) / x.shape[0] * (self.slit_microns_per_det_pix_last
-                                               - self.slit_microns_per_det_pix_first)
+                slit_microns_per_det_pix = self.slit_microns_per_det_pix_first +
+                float(i) / x.shape[0] * (self.slit_microns_per_det_pix_last -
+                                         self.slit_microns_per_det_pix_first)
                 amat[0, 0] = 1.0 / slit_microns_per_det_pix
                 amat[0, 1] = 0
                 amat[1, 0] = 0
@@ -411,8 +411,9 @@ class Polyspect(object):
                 r_rad = np.radians(self.extra_rot)
                 dy_frac = (j - x.shape[1] / 2.0) / (x.shape[1] / 2.0)
                 extra_rot_mat = np.array([[np.cos(r_rad * dy_frac),
-                                           np.sin(r_rad * dy_frac)], [-np.sin(r_rad * dy_frac),
-                                                                      np.cos(r_rad * dy_frac)]])
+                                           np.sin(r_rad * dy_frac)],
+                                          [-np.sin(r_rad * dy_frac),
+                                           np.cos(r_rad * dy_frac)]])
                 amat = np.dot(extra_rot_mat, amat)
                 # We actually want the inverse of this (mapping output
                 # coordinates back onto the slit.
@@ -420,8 +421,8 @@ class Polyspect(object):
         return x, w, b, matrices
 
     def slit_flat_convolve(self, flatfield=None, mode='ghoststd'):
-        """Function that takes a flat field image and a slit profile and 
-           convolves the two in 2D. Returns result of convolution, which 
+        """Function that takes a flat field image and a slit profile and
+           convolves the two in 2D. Returns result of convolution, which
            should be used for tramline fitting. ONLY WORKS FOR GHOST.
 
         Parameters
@@ -429,13 +430,13 @@ class Polyspect(object):
         flatimage: string
             A file name containing a flat field image from the spectrograph
         mode: string
-            Either 'ghoststd' of 'ghosthigh'. This will inform on the order 
+            Either 'ghoststd' of 'ghosthigh'. This will inform on the order
             profile.
 
         Returns
         -------
         flat_conv: float array
-            Currently returns the convolved 2D array. 
+            Currently returns the convolved 2D array.
 
         """
         # Grab the flat field data
@@ -446,8 +447,8 @@ class Polyspect(object):
         x = flat.shape[0]
         profilex = np.arange(x) - x // 2
         sigma = 1.1
-        # This is the fiber centre separation in pixels. MAY NEED TO BE ADJUSTED
-        # DEPENDING ON MODE!
+        # This is the fiber centre separation in pixels. MAY NEED TO BE
+        # ADJUSTED DEPENDING ON MODE!
         fiber_separation = 3.97
         # Now create a model of the slit profile
         mod_slit = np.zeros(x)
@@ -457,8 +458,8 @@ class Polyspect(object):
             nfibers = self.nl
 
         for i in range(-nfibers // 2, nfibers // 2):
-            mod_slit += np.exp(-(profilex - i * fiber_separation)**2
-                               / 2.0 / sigma**2)
+            mod_slit += np.exp(-(profilex - i * fiber_separation)**2 /
+                               2.0 / sigma**2)
 
         # Normalise the slit model and fourier transform for convolution
         mod_slit /= np.sum(mod_slit)
@@ -473,19 +474,21 @@ class Polyspect(object):
         return flat_conv
 
     def slider_adjust(self, datafile, wparams='./data/ghost/wavemod.txt',
-                      xparams='./data/ghost/xmod.txt', percentage_variation=10):
+                      xparams='./data/ghost/xmod.txt',
+                      percentage_variation=10):
         """Function that uses matplotlib slider widgets to adjust a polynomial
-        model overlaid on top of a flat field image. In practice this will be 
-        overlaid on top of the result of convolving the flat with a slit profile
-        in 2D which just reveals the location of the middle of the orders.
+        model overlaid on top of a flat field image. In practice this will be
+        overlaid on top of the result of convolving the flat with a slit
+        profile in 2D which just reveals the location of the middle of the
+        orders.
 
         Parameters
         ----------
         datafile: string
-            A string containing the location of the data file (flat field) 
+            A string containing the location of the data file (flat field)
             to be used as a visual comparison of the model
         wparams: string
-            location of the wavemod.txt file containing the initial wavelength 
+            location of the wavemod.txt file containing the initial wavelength
             model parameters.
         xparams: string
             location of the xmod.txt file containing the initial order location
@@ -496,7 +499,7 @@ class Polyspect(object):
 
         Returns
         -------
-        Either a success or an error message. 
+        Either a success or an error message.
 
         """
 
@@ -507,22 +510,17 @@ class Polyspect(object):
         wparams = np.loadtxt('./data/ghost/wavemod.txt')
         xparams = np.loadtxt('./data/ghost/xmod.txt')
 
-        #xparams= np.zeros_like(xparams)
-
         fig, ax = plt.subplots()
-        #plt.subplots_adjust(left=0, bottom=0.40)
 
         x_int, wave_int, blaze_int = ghost.spectral_format(wparams=wparams,
                                                            xparams=xparams)
         y = np.meshgrid(np.arange(data.shape[1]), np.arange(x_int.shape[0]))[0]
-        # pdb.set_trace()
+
         l, = plt.plot(y.flatten()[::10], x_int.flatten()[::10] + nx // 2,
                       color='green', linestyle='None', marker='.')
 
         flat_conv = ghost.slit_flat_convolve(flatfield=datafile)
         ax.imshow((flat_conv - np.median(flat_conv)) / 1e2)
-
-        # plt.imshow(data)
 
         axcolor = 'lightgoldenrodyellow'
 
@@ -560,11 +558,13 @@ class Polyspect(object):
                                      axisbg=axcolor)
                 if xparams[i, j] == 0:
                     sliders[i][j] = Slider(axq[i][j],
-                                           'test' + str(i) + str(j), 0, 0.1, valinit=xparams[i, j])
+                                           'test' + str(i) + str(j), 0, 0.1,
+                                           valinit=xparams[i, j])
                 else:
                     sliders[i][j] = Slider(axq[i][j], 'test' + str(i) + str(j),
                                            xparams[i, j] - frac_xparams[i, j],
-                                           xparams[i, j] + frac_xparams[i, j], valinit=xparams[i, j])
+                                           xparams[i, j] + frac_xparams[i, j],
+                                           valinit=xparams[i, j])
                 plt.legend(loc=3)
                 sliders[i][j].on_changed(update)
 
@@ -582,11 +582,11 @@ class Polyspect(object):
 
         button.on_clicked(submit)
 
-        """THINGS TO ADD: 
-        -All outputs of each procedure must be fits files, including the 
-        polynomial fit parameters. 
+        """THINGS TO ADD:
+        -All outputs of each procedure must be fits files, including the
+        polynomial fit parameters.
         -Multiple files for each variation of the spectrograph
-        -A fit button? 
+        -A fit button?
         """
 
         plt.show()
