@@ -49,8 +49,8 @@ npolys=xparams.shape[0] #3
 height=1./(npolys*2)
 width=1./(polyorder*2)
 #Use this to adjust in a percentage how much to let each parameter vary 
-percentage_variation=0.1
-frac_xparams=np.absolute(xparams*percentage_variation)
+percentage_variation=100
+frac_xparams=np.absolute(xparams*(percentage_variation/100))
 axq= [[0 for x in range(polyorder)] for y in range(npolys)] 
 sliders=[[0 for x in range(polyorder)] for y in range(npolys)] 
 #Now put all the sliders in the new figure based on position in the array
