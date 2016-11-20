@@ -13,6 +13,7 @@ Contents:
 
    extract
    ghost
+   polyspect
    rhea
    rv
 

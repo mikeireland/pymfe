@@ -312,20 +312,27 @@ class Polyspect(object):
         """Fit to an (nm,ny) array of x-values.
 
         The functional form is:
-            x = p0(m) + p1(m)*yp + p2(m)*yp**2 + ...)
+        
+        .. math::
+        
+            x = p_0(m) + p_1(m)*y' + p_2(m)*y'^2 + ...)
 
-        with yp = y - y_middle, and:
-            p0(m) = q00 + q01 * mp + q02 * mp**2 + ...
+        with :math:`y^{prime} = y - y_{\rm middle}`, and:
+        
+        .. math::
+        
+            p0(m) = q_{00} + q_{01} * m' + q_{02} * m'^2 + ...
 
-        with mp = m_ref/m - 1
+        with :math:`mp = m_{\rm ref}/m - 1
 
         This means that the simplest spectrograph model should have:
-        q00 : central order y pixel
-        q01:  spacing between orders divided by the number of orders
+        :math:`q_{00}` : central order y pixel
+        :math:`q_{01}`:  spacing between orders divided by the number of orders
         ... with everything else approximately zero.
 
         Parameters
         ----------
+        
         xdeg, ydeg: int
             Order of polynomial
         """
@@ -399,9 +406,9 @@ class Polyspect(object):
             for j in range(x.shape[1]):
                 # Create a matrix where we map input angles to output
                 # coordinates.
-                slit_microns_per_det_pix = self.slit_microns_per_det_pix_first +
-                float(i) / x.shape[0] * (self.slit_microns_per_det_pix_last -
-                                         self.slit_microns_per_det_pix_first)
+                slit_microns_per_det_pix = self.slit_microns_per_det_pix_first + \
+                    float(i) / x.shape[0] * (self.slit_microns_per_det_pix_last - \
+                                             self.slit_microns_per_det_pix_first)
                 amat[0, 0] = 1.0 / slit_microns_per_det_pix
                 amat[0, 1] = 0
                 amat[1, 0] = 0
