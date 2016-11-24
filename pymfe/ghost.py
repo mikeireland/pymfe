@@ -61,6 +61,8 @@ class Arm(Polyspect):
         # Number of microns in the slit image plane per arcsec
         self.microns_arcsec = 400.0
         self.im_slit_sz = 2048  # Size of the image slit size in pixels.
+        #True if the spectral dispersion dimention is over the x (column) axis
+        self.transpose=True  
         if (arm == 'red'):
             # Additional slit rotation across an order needed to match Zemax.
             self.extra_rot = 3.0
