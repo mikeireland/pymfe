@@ -76,12 +76,9 @@ class Polyspect(object):
             Directory. If none given, a fit to Tobias's default
             pixels in "data" is made."""
         if len(init_mod_file) == 0:
-            params0 = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' +
-                self.spect + '/wavemod.txt'))
+            params0 = np.loadtxt(self.model_location+'/wavemod.txt')
         if (len(pixdir) == 0):
-            pixdir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  '../data/' + self.spect + '/')
+            pixdir = self.model_location
         # The next loop reads in Mike's or Tobias's wavelengths.
         # Try for Mike's single file format first.
         # To make this neater, it could be a function that overrides this
@@ -177,13 +174,9 @@ class Polyspect(object):
 
         # Should be an option here to get files from a different directory.
         if wparams is None:
-            wparams = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' +
-                self.spect + '/wavemod.txt'))
+            wparams = np.loadtxt(self.model_location+'/wavemod.txt')
         if xparams is None:
-            xparams = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' + self.spect +
-                                              '/xmod.txt'))
+            xparams = np.loadtxt(self.model_location+'/xmod.txt')
 
         ys = np.arange(self.szy)
         # Loop through m
@@ -268,7 +261,7 @@ class Polyspect(object):
         """Fit a "tramline" map. Note that an initial map has to be pretty
         close, i.e. within "search_pix" everywhere. To get within search_pix
         everywhere, a simple model with a few paramers is fitted manually.
-        This can be done with a GUI using the slider_adjust function.
+        This can be done with a GUI using the adjust_model function.
 
         Parameters
         ----------
@@ -316,7 +309,7 @@ class Polyspect(object):
         if inspect:
             #This will plot the result of the fit once successful so
             #the user can inspect the result.
-            self.slider_adjust(data, xparams='xmod.txt',convolve=False)
+            self.adjust_model(data, xparams='xmod.txt',convolve=False)
             
 
     def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2,
@@ -342,9 +335,7 @@ class Polyspect(object):
             Order of polynomial
         """
         if len(init_mod_file) == 0:
-            params0 = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' + self.spect +
-                                              '/xmod.txt'))
+            params0 = np.loadtxt(self.model_location+'/xmod.txt')
 
         # Create an array of y and m values.
         xs = x_to_fit.copy()
@@ -432,18 +423,19 @@ class Polyspect(object):
                 matrices[i, j, :, :] = np.linalg.inv(amat)
         return x, w, b, matrices
 
-    def slit_flat_convolve(self, flatfield=None, mode='ghoststd'):
+    def slit_flat_convolve(self, flat, slit_profile=None):
         """Function that takes a flat field image and a slit profile and
            convolves the two in 2D. Returns result of convolution, which
            should be used for tramline fitting. ONLY WORKS FOR GHOST.
 
         Parameters
         ----------
-        flatfield: float array
+        flat: float array
             A flat field image from the spectrograph
-        mode: string
-            Either 'ghoststd' of 'ghosthigh'. This will inform on the order
-            profile.
+        slit_profile: float array
+            A 1D array with the slit profile fiber amplitudes. If none is
+            supplied this function will assume identical fibers and create
+            one to be used in the convolution.
 
         Returns
         -------
@@ -451,25 +443,27 @@ class Polyspect(object):
             Currently returns the convolved 2D array.
 
         """
-        # At this point create a slit profile
-        # Create a x baseline for convolution and assume a FWHM for profile
-        x = flat.shape[0]
-        profilex = np.arange(x) - x // 2
-        sigma = 1.1
-        # This is the fiber centre separation in pixels. MAY NEED TO BE
-        # ADJUSTED DEPENDING ON MODE!
-        fiber_separation = 3.97
-        # Now create a model of the slit profile
-        mod_slit = np.zeros(x)
-        if self.mode == 'high':
-            nfibers = 26
+        if not slit_profile:
+            # At this point create a slit profile
+            # Create a x baseline for convolution and assume a FWHM for profile
+            x = flat.shape[0]
+            profilex = np.arange(x) - x // 2
+            sigma = 1.1
+            # This is the fiber centre separation in pixels. MAY NEED TO BE
+            # ADJUSTED DEPENDING ON MODE!
+            fiber_separation = 3.97
+            # Now create a model of the slit profile
+            mod_slit = np.zeros(x)
+            if self.mode == 'high':
+                nfibers = 26
+            else:
+                nfibers = self.nl
+
+            for i in range(-nfibers // 2, nfibers // 2):
+                mod_slit += np.exp(-(profilex - i * fiber_separation)**2 /
+                                   2.0 / sigma**2)
         else:
-            nfibers = self.nl
-
-        for i in range(-nfibers // 2, nfibers // 2):
-            mod_slit += np.exp(-(profilex - i * fiber_separation)**2 /
-                               2.0 / sigma**2)
-
+            mod_slit=slit_profile
         # Normalise the slit model and fourier transform for convolution
         mod_slit /= np.sum(mod_slit)
         mod_slit_ft = np.fft.rfft(np.fft.fftshift(mod_slit))
@@ -482,8 +476,8 @@ class Polyspect(object):
         flat_conv = np.fft.irfft(flat_conv, axis=0)
         return flat_conv
 
-    def slider_adjust(self, data, wparams='./data/ghost/wavemod.txt',
-                      xparams='./data/ghost/xmod.txt',convolve=True,
+    def adjust_model(self, data, wparams=None,
+                      xparams=None,convolve=True,
                       percentage_variation=10):
         """Function that uses matplotlib slider widgets to adjust a polynomial
         model overlaid on top of a flat field image. In practice this will be
@@ -515,12 +509,14 @@ class Polyspect(object):
         Either a success or an error message.
 
         """
-
+        # Should be an option here to get files from a different directory.
+        if wparams is None:
+            wparams = np.loadtxt(self.model_location+'/wavemod.txt')
+        if xparams is None:
+            xparams = np.loadtxt(self.model_location+'/xmod.txt')
         # Grab the data file
         nx = data.shape[0]
-        wparams = np.loadtxt(wparams)
-        xparams = np.loadtxt(xparams)
-
+        
         fig, ax = plt.subplots()
 
         x_int, wave_int, blaze_int = self.spectral_format(wparams=wparams,
@@ -531,7 +527,7 @@ class Polyspect(object):
                       color='green', linestyle='None', marker='.')
 
         if convolve:
-            data = self.slit_flat_convolve(flatfield=data)
+            data = self.slit_flat_convolve(flat=data)
         ax.imshow((data - np.median(data)) / 1e2)
 
         axcolor = 'lightgoldenrodyellow'
@@ -586,7 +582,7 @@ class Polyspect(object):
 
         def submit(event):
             try:
-                np.savetxt('data/ghost/xmod.txt', xparams, fmt='%.4e')
+                np.savetxt(self.model_location+'/xmod.txt', xparams, fmt='%.4e')
                 print('Data updated on xmod.txt')
                 return 1
             except Exception:
