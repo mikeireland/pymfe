@@ -61,6 +61,12 @@ class Arm(Polyspect):
         # Number of microns in the slit image plane per arcsec
         self.microns_arcsec = 400.0
         self.im_slit_sz = 2048  # Size of the image slit size in pixels.
+        #True if the spectral dispersion dimention is over the x (column) axis
+        self.transpose=True
+        self.mode = mode
+        self.model_location=os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                         '../data/'+self.spect+'/'+\
+                                         self.arm+'/'+self.mode))
         if (arm == 'red'):
             # Additional slit rotation across an order needed to match Zemax.
             self.extra_rot = 3.0
@@ -96,7 +102,6 @@ class Arm(Polyspect):
             raise UserWarning
 
         if (mode == 'high'):
-            self.mode = mode
             self.lenslet_width = self.lenslet_high_size
             self.nl = 28
             # Set default profiles - object, sky and reference
@@ -109,7 +114,6 @@ class Arm(Polyspect):
             fluxes[2 + 19:, 1] = 1.0
             fluxes[0, 2] = 1.0
         elif (mode == 'std'):
-            self.mode = mode
             self.lenslet_width = self.lenslet_std_size
             self.nl = 17
             # Set default profiles - object 1, sky and object 2

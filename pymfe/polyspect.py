@@ -76,12 +76,9 @@ class Polyspect(object):
             Directory. If none given, a fit to Tobias's default
             pixels in "data" is made."""
         if len(init_mod_file) == 0:
-            params0 = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' +
-                self.spect + '/wavemod.txt'))
+            params0 = np.loadtxt(self.model_location+'/wavemod.txt')
         if (len(pixdir) == 0):
-            pixdir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  '../data/' + self.spect + '/')
+            pixdir = self.model_location
         # The next loop reads in Mike's or Tobias's wavelengths.
         # Try for Mike's single file format first.
         # To make this neater, it could be a function that overrides this
@@ -177,13 +174,9 @@ class Polyspect(object):
 
         # Should be an option here to get files from a different directory.
         if wparams is None:
-            wparams = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' +
-                self.spect + '/wavemod.txt'))
+            wparams = np.loadtxt(self.model_location+'/wavemod.txt')
         if xparams is None:
-            xparams = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' + self.spect +
-                                              '/xmod.txt'))
+            xparams = np.loadtxt(self.model_location+'/xmod.txt')
 
         ys = np.arange(self.szy)
         # Loop through m
@@ -264,15 +257,15 @@ class Polyspect(object):
 
         return old_x + the_shift
 
-    def fit_x_to_image(self, image, decrease_dim=10, search_pix=20, xdeg=4):
+    def fit_x_to_image(self, data, decrease_dim=10, search_pix=20, xdeg=4,inspect=False):
         """Fit a "tramline" map. Note that an initial map has to be pretty
         close, i.e. within "search_pix" everywhere. To get within search_pix
         everywhere, a simple model with a few paramers is fitted manually.
-        This can be done with a GUI using the slider_adjust function.
+        This can be done with a GUI using the adjust_model function.
 
         Parameters
         ----------
-        image: numpy array
+        data: numpy array
             The image of a single reference fiber to fit to.
         decrease_dim: int
             Median filter by this amount in the dispersion direction and
@@ -282,8 +275,15 @@ class Polyspect(object):
             Search within this many pixels of the initial model.
         """
         xx, wave, blaze = self.spectral_format()
+        if self.transpose:
+            image=data.T
+        else:
+            image=data
         xs = self.adjust_x(xx, image)
-
+        if image.shape[0]%decrease_dim!=0:
+            return "Can not decrease image dimention by this amount. "+\
+            "Please check if the image size in the spectral dimention is "+\
+            "exactly divisible by this amount."
         # Median-filter in the dispersion direction.
         image_med = image.reshape((image.shape[0] // decrease_dim,
                                    decrease_dim, image.shape[1]))
@@ -306,6 +306,11 @@ class Polyspect(object):
                 xs[i, j] += np.argmax(peakpix) - search_pix
 
         self.fit_to_x(xs, ys=ys, xdeg=xdeg)
+        if inspect:
+            #This will plot the result of the fit once successful so
+            #the user can inspect the result.
+            self.adjust_model(data, xparams='xmod.txt',convolve=False)
+            
 
     def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2,
                  xdeg=4, ys=[], decrease_dim=1):
@@ -337,9 +342,7 @@ class Polyspect(object):
             Order of polynomial
         """
         if len(init_mod_file) == 0:
-            params0 = np.loadtxt(os.path.join(os.path.dirname(
-                os.path.abspath(__file__)), '../data/' + self.spect +
-                                              '/xmod.txt'))
+            params0 = np.loadtxt(self.model_location+'/xmod.txt')
 
         # Create an array of y and m values.
         xs = x_to_fit.copy()
@@ -427,18 +430,19 @@ class Polyspect(object):
                 matrices[i, j, :, :] = np.linalg.inv(amat)
         return x, w, b, matrices
 
-    def slit_flat_convolve(self, flatfield=None, mode='ghoststd'):
+    def slit_flat_convolve(self, flat, slit_profile=None):
         """Function that takes a flat field image and a slit profile and
            convolves the two in 2D. Returns result of convolution, which
            should be used for tramline fitting. ONLY WORKS FOR GHOST.
 
         Parameters
         ----------
-        flatimage: string
-            A file name containing a flat field image from the spectrograph
-        mode: string
-            Either 'ghoststd' of 'ghosthigh'. This will inform on the order
-            profile.
+        flat: float array
+            A flat field image from the spectrograph
+        slit_profile: float array
+            A 1D array with the slit profile fiber amplitudes. If none is
+            supplied this function will assume identical fibers and create
+            one to be used in the convolution.
 
         Returns
         -------
@@ -446,28 +450,27 @@ class Polyspect(object):
             Currently returns the convolved 2D array.
 
         """
-        # Grab the flat field data
-        flat = pyfits.getdata(flatfield)
+        if not slit_profile:
+            # At this point create a slit profile
+            # Create a x baseline for convolution and assume a FWHM for profile
+            x = flat.shape[0]
+            profilex = np.arange(x) - x // 2
+            sigma = 1.1
+            # This is the fiber centre separation in pixels. MAY NEED TO BE
+            # ADJUSTED DEPENDING ON MODE!
+            fiber_separation = 3.97
+            # Now create a model of the slit profile
+            mod_slit = np.zeros(x)
+            if self.mode == 'high':
+                nfibers = 26
+            else:
+                nfibers = self.nl
 
-        # At this point create a slit profile
-        # Create a x baseline for convolution and assume a FWHM for profile
-        x = flat.shape[0]
-        profilex = np.arange(x) - x // 2
-        sigma = 1.1
-        # This is the fiber centre separation in pixels. MAY NEED TO BE
-        # ADJUSTED DEPENDING ON MODE!
-        fiber_separation = 3.97
-        # Now create a model of the slit profile
-        mod_slit = np.zeros(x)
-        if self.mode == 'high':
-            nfibers = 26
+            for i in range(-nfibers // 2, nfibers // 2):
+                mod_slit += np.exp(-(profilex - i * fiber_separation)**2 /
+                                   2.0 / sigma**2)
         else:
-            nfibers = self.nl
-
-        for i in range(-nfibers // 2, nfibers // 2):
-            mod_slit += np.exp(-(profilex - i * fiber_separation)**2 /
-                               2.0 / sigma**2)
-
+            mod_slit=slit_profile
         # Normalise the slit model and fourier transform for convolution
         mod_slit /= np.sum(mod_slit)
         mod_slit_ft = np.fft.rfft(np.fft.fftshift(mod_slit))
@@ -480,8 +483,8 @@ class Polyspect(object):
         flat_conv = np.fft.irfft(flat_conv, axis=0)
         return flat_conv
 
-    def slider_adjust(self, datafile, wparams='./data/ghost/wavemod.txt',
-                      xparams='./data/ghost/xmod.txt',
+    def adjust_model(self, data, wparams=None,
+                      xparams=None,convolve=True,
                       percentage_variation=10):
         """Function that uses matplotlib slider widgets to adjust a polynomial
         model overlaid on top of a flat field image. In practice this will be
@@ -491,15 +494,19 @@ class Polyspect(object):
 
         Parameters
         ----------
-        datafile: string
-            A string containing the location of the data file (flat field)
-            to be used as a visual comparison of the model
+        data: float array
+            an array containing data to be used as a visual comparison of the
+            model
         wparams: string
             location of the wavemod.txt file containing the initial wavelength
             model parameters.
         xparams: string
             location of the xmod.txt file containing the initial order location
             model parameters.
+        convolve: boolean
+            A boolean indicating whether the data provided should be convolved 
+            with a slit profile model. True if data provided is a multi fiber 
+            flatfield.
         percentage_variation: int
             How much should the percentage adjustment in each bin as a function
             of the parameter. Default is 10%
@@ -509,25 +516,26 @@ class Polyspect(object):
         Either a success or an error message.
 
         """
-
+        # Should be an option here to get files from a different directory.
+        if wparams is None:
+            wparams = np.loadtxt(self.model_location+'/wavemod.txt')
+        if xparams is None:
+            xparams = np.loadtxt(self.model_location+'/xmod.txt')
         # Grab the data file
-        data = pyfits.getdata(datafile)
         nx = data.shape[0]
-        ghost = pymfe.ghost.Arm('blue', mode='std')
-        wparams = np.loadtxt('./data/ghost/wavemod.txt')
-        xparams = np.loadtxt('./data/ghost/xmod.txt')
-
+        
         fig, ax = plt.subplots()
 
-        x_int, wave_int, blaze_int = ghost.spectral_format(wparams=wparams,
+        x_int, wave_int, blaze_int = self.spectral_format(wparams=wparams,
                                                            xparams=xparams)
         y = np.meshgrid(np.arange(data.shape[1]), np.arange(x_int.shape[0]))[0]
 
         l, = plt.plot(y.flatten()[::10], x_int.flatten()[::10] + nx // 2,
                       color='green', linestyle='None', marker='.')
 
-        flat_conv = ghost.slit_flat_convolve(flatfield=datafile)
-        ax.imshow((flat_conv - np.median(flat_conv)) / 1e2)
+        if convolve:
+            data = self.slit_flat_convolve(flat=data)
+        ax.imshow((data - np.median(data)) / 1e2)
 
         axcolor = 'lightgoldenrodyellow'
 
@@ -540,7 +548,7 @@ class Polyspect(object):
             for i in range(npolys):
                 for j in range(polyorder):
                     xparams[i, j] = sliders[i][j].val
-            x, wave, blaze = ghost.spectral_format(wparams=wparams,
+            x, wave, blaze = self.spectral_format(wparams=wparams,
                                                    xparams=xparams)
             l.set_ydata(x.flatten()[::10] + nx // 2)
             fig.canvas.draw_idle()
@@ -581,7 +589,7 @@ class Polyspect(object):
 
         def submit(event):
             try:
-                np.savetxt('data/ghost/xmod.txt', xparams, fmt='%.4e')
+                np.savetxt(self.model_location+'/xmod.txt', xparams, fmt='%.4e')
                 print('Data updated on xmod.txt')
                 return 1
             except Exception:
