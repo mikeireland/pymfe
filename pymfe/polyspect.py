@@ -76,7 +76,7 @@ class Polyspect(object):
             Directory. If none given, a fit to Tobias's default
             pixels in "data" is made."""
         if len(init_mod_file) == 0:
-            params0 = pyfits.getdata(self.model_location+'/wavemod.txt')
+            params0 = pyfits.getdata(self.model_location+'/wavemod.fits')
         if (len(pixdir) == 0):
             pixdir = self.model_location
         # The next loop reads in Mike's or Tobias's wavelengths.
@@ -117,7 +117,7 @@ class Polyspect(object):
         print("Fit residual RMS (Angstroms): {0:6.3f}".format(
             np.std(final_resid)))
         params = bestp[0].reshape((ydeg + 1, xdeg + 1))
-        outf = open(outdir + "wavemod.txt", "w")
+        outf = open(outdir + "wavemod.fits", "w")
         for i in range(ydeg + 1):
             for j in range(xdeg + 1):
                 outf.write("{0:10.5e} ".format(params[i, j]))
@@ -174,9 +174,9 @@ class Polyspect(object):
 
         # Should be an option here to get files from a different directory.
         if wparams is None:
-            wparams = pyfits.getdata(self.model_location+'/wavemod.txt')
+            wparams = pyfits.getdata(self.model_location+'/wavemod.fits')
         if xparams is None:
-            xparams = pyfits.getdata(self.model_location+'/xmod.txt')
+            xparams = pyfits.getdata(self.model_location+'/xmod.fits')
 
         ys = np.arange(self.szy)
         # Loop through m
@@ -309,7 +309,8 @@ class Polyspect(object):
         if inspect:
             #This will plot the result of the fit once successful so
             #the user can inspect the result.
-            self.adjust_model(data, xparams='xmod.txt',convolve=False)
+            xpar=pyfits.getdata('xmod.fits')
+            self.adjust_model(data, xparams=xpar,convolve=False)
             
 
     def fit_to_x(self, x_to_fit, init_mod_file='', outdir='./', ydeg=2,
@@ -342,7 +343,7 @@ class Polyspect(object):
             Order of polynomial
         """
         if len(init_mod_file) == 0:
-            params0 = pyfits.getdata(self.model_location+'/xmod.txt')
+            params0 = pyfits.getdata(self.model_location+'/xmod.fits')
 
         # Create an array of y and m values.
         xs = x_to_fit.copy()
@@ -375,12 +376,14 @@ class Polyspect(object):
             bestp[0], ms, xs, ys, ydeg=ydeg, xdeg=xdeg)
         params = bestp[0].reshape((ydeg + 1, xdeg + 1))
         print(init_resid, final_resid)
-        outf = open(outdir + "xmod.txt", "w")
-        for i in range(ydeg + 1):
-            for j in range(xdeg + 1):
-                outf.write("{0:9.4e} ".format(params[i, j]))
-            outf.write("\n")
-        outf.close()
+
+        pyfits.writeto(outdir + 'xmod.fits',params,clobber=True)
+        # outf = open(outdir + "xmod.fits", "w")
+        # for i in range(ydeg + 1):
+        #     for j in range(xdeg + 1):
+        #         outf.write("{0:9.4e} ".format(params[i, j]))
+        #     outf.write("\n")
+        # outf.close()
 
     def spectral_format_with_matrix(self):
         """Create a spectral format, including a detector to slit matrix at
@@ -455,10 +458,6 @@ class Polyspect(object):
             # Create a x baseline for convolution and assume a FWHM for profile
             x = flat.shape[0]
             profilex = np.arange(x) - x // 2
-            sigma = 1.1
-            # This is the fiber centre separation in pixels. MAY NEED TO BE
-            # ADJUSTED DEPENDING ON MODE!
-            fiber_separation = 3.97
             # Now create a model of the slit profile
             mod_slit = np.zeros(x)
             if self.mode == 'high':
@@ -467,10 +466,11 @@ class Polyspect(object):
                 nfibers = self.nl
 
             for i in range(-nfibers // 2, nfibers // 2):
-                mod_slit += np.exp(-(profilex - i * fiber_separation)**2 /
-                                   2.0 / sigma**2)
+                mod_slit += np.exp(-(profilex - i * self.fiber_separation)**2 /
+                                   2.0 / self.profile_sigma**2)
         else:
             mod_slit=slit_profile
+        pdb.set_trace()
         # Normalise the slit model and fourier transform for convolution
         mod_slit /= np.sum(mod_slit)
         mod_slit_ft = np.fft.rfft(np.fft.fftshift(mod_slit))
@@ -498,10 +498,10 @@ class Polyspect(object):
             an array containing data to be used as a visual comparison of the
             model
         wparams: string
-            location of the wavemod.txt file containing the initial wavelength
+            location of the wavemod.fits file containing the initial wavelength
             model parameters.
         xparams: string
-            location of the xmod.txt file containing the initial order location
+            location of the xmod.fits file containing the initial order location
             model parameters.
         convolve: boolean
             A boolean indicating whether the data provided should be convolved 
@@ -518,9 +518,9 @@ class Polyspect(object):
         """
         # Should be an option here to get files from a different directory.
         if wparams is None:
-            wparams = pyfits.getdata(self.model_location+'/wavemod.txt')
+            wparams = pyfits.getdata(self.model_location+'/wavemod.fits')
         if xparams is None:
-            xparams = pyfits.getdata(self.model_location+'/xmod.txt')
+            xparams = pyfits.getdata(self.model_location+'/xmod.fits')
         # Grab the data file
         nx = data.shape[0]
         
@@ -589,12 +589,12 @@ class Polyspect(object):
 
         def submit(event):
             try:
-                pyfits.writeto(self.model_location+'/xmod.fits', xparams)
-                print('Data updated on xmod.txt')
+                pyfits.writeto(self.model_location+'/xmod.fits', xparams,clobber=True)
+                print('Data updated on xmod.fits')
                 return 1
             except Exception:
-                return 'Unable to save data onto file.'
-
+                print('Unable to save data onto file.')
+            
         button.on_clicked(submit)
 
         plt.show()

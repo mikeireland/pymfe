@@ -64,6 +64,7 @@ class Arm(Polyspect):
         #True if the spectral dispersion dimention is over the x (column) axis
         self.transpose=True
         self.mode = mode
+        #This is the location of the model parameter files. 
         self.model_location=os.path.abspath(os.path.join(os.path.dirname(__file__),
                                          '../data/'+self.spect+'/'+\
                                          self.arm+'/'+self.mode))
@@ -71,7 +72,7 @@ class Arm(Polyspect):
             # Additional slit rotation across an order needed to match Zemax.
             self.extra_rot = 3.0
             self.szx = 6144
-            self.szy = 6144
+            self.szy = 6160
             self.f_cam = 264.0
             self.px_sz = 15e-3
             self.drot = -2.0  # Detector rotation
@@ -82,6 +83,14 @@ class Arm(Polyspect):
             self.m_min = 34
             self.m_max = 67
             self.m_ref = 50  # Reference order
+            # Now put in the default fiber profile parameters for each mode.
+            # These are used by the convolution function on polyspect
+            if self.mode=='std':
+                self.fiber_separation=4.15
+                self.profile_sigma=1.1#done
+            elif self.mode=='high':
+                self.fiber_separation=2.49
+                self.profile_sigma=0.7#done
         elif (arm == 'blue'):
             # Additional slit rotation accross an order needed to match Zemax.
             self.extra_rot = 2.0
@@ -97,6 +106,14 @@ class Arm(Polyspect):
             self.m_min = 63
             self.m_max = 95
             self.m_ref = 80  # Reference order
+            # Now put in the default fiber profile parameters for each mode.
+            # These are used by the convolution function on polyspect
+            if self.mode=='std':
+                self.fiber_separation=3.97
+                self.profile_sigma=1.1#done
+            elif self.mode=='high':
+                self.fiber_separation=2.53
+                self.profile_sigma=0.7#done
         else:
             print("Unknown spectrograph arm!")
             raise UserWarning
