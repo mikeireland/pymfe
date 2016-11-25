@@ -76,7 +76,7 @@ class Polyspect(object):
             Directory. If none given, a fit to Tobias's default
             pixels in "data" is made."""
         if len(init_mod_file) == 0:
-            params0 = np.loadtxt(self.model_location+'/wavemod.txt')
+            params0 = pyfits.getdata(self.model_location+'/wavemod.txt')
         if (len(pixdir) == 0):
             pixdir = self.model_location
         # The next loop reads in Mike's or Tobias's wavelengths.
@@ -174,9 +174,9 @@ class Polyspect(object):
 
         # Should be an option here to get files from a different directory.
         if wparams is None:
-            wparams = np.loadtxt(self.model_location+'/wavemod.txt')
+            wparams = pyfits.getdata(self.model_location+'/wavemod.txt')
         if xparams is None:
-            xparams = np.loadtxt(self.model_location+'/xmod.txt')
+            xparams = pyfits.getdata(self.model_location+'/xmod.txt')
 
         ys = np.arange(self.szy)
         # Loop through m
@@ -342,7 +342,7 @@ class Polyspect(object):
             Order of polynomial
         """
         if len(init_mod_file) == 0:
-            params0 = np.loadtxt(self.model_location+'/xmod.txt')
+            params0 = pyfits.getdata(self.model_location+'/xmod.txt')
 
         # Create an array of y and m values.
         xs = x_to_fit.copy()
@@ -518,9 +518,9 @@ class Polyspect(object):
         """
         # Should be an option here to get files from a different directory.
         if wparams is None:
-            wparams = np.loadtxt(self.model_location+'/wavemod.txt')
+            wparams = pyfits.getdata(self.model_location+'/wavemod.txt')
         if xparams is None:
-            xparams = np.loadtxt(self.model_location+'/xmod.txt')
+            xparams = pyfits.getdata(self.model_location+'/xmod.txt')
         # Grab the data file
         nx = data.shape[0]
         
@@ -589,20 +589,13 @@ class Polyspect(object):
 
         def submit(event):
             try:
-                np.savetxt(self.model_location+'/xmod.txt', xparams, fmt='%.4e')
+                pyfits.writeto(self.model_location+'/xmod.fits', xparams)
                 print('Data updated on xmod.txt')
                 return 1
             except Exception:
                 return 'Unable to save data onto file.'
 
         button.on_clicked(submit)
-
-        """THINGS TO ADD:
-        -All outputs of each procedure must be fits files, including the
-        polynomial fit parameters.
-        -Multiple files for each variation of the spectrograph
-        -A fit button?
-        """
 
         plt.show()
         return 1
